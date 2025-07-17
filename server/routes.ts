@@ -11,7 +11,10 @@ import {
   insertInventorySchema,
   insertEquipmentSchema,
   insertMaintenanceRecordSchema,
-  insertDocumentSchema
+  insertDocumentSchema,
+  insertBudgetSchema,
+  insertAccountSchema,
+  insertJournalEntrySchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -327,6 +330,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching weather:", error);
       res.status(500).json({ message: "Failed to fetch weather data" });
+    }
+  });
+
+  // Budget routes
+  app.get('/api/budgets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const budgets = await storage.getBudgets(userId);
+      res.json(budgets);
+    } catch (error) {
+      console.error("Error fetching budgets:", error);
+      res.status(500).json({ message: "Failed to fetch budgets" });
+    }
+  });
+
+  app.post('/api/budgets', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const budgetData = insertBudgetSchema.parse({ ...req.body, userId });
+      const budget = await storage.createBudget(budgetData);
+      res.status(201).json(budget);
+    } catch (error) {
+      console.error("Error creating budget:", error);
+      res.status(500).json({ message: "Failed to create budget" });
+    }
+  });
+
+  app.put('/api/budgets/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const budgetData = insertBudgetSchema.partial().parse(req.body);
+      const budget = await storage.updateBudget(id, budgetData, userId);
+      res.json(budget);
+    } catch (error) {
+      console.error("Error updating budget:", error);
+      res.status(500).json({ message: "Failed to update budget" });
+    }
+  });
+
+  app.delete('/api/budgets/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      await storage.deleteBudget(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting budget:", error);
+      res.status(500).json({ message: "Failed to delete budget" });
+    }
+  });
+
+  app.get('/api/budget-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { period } = req.query;
+      const status = await storage.getBudgetStatus(userId, period as string);
+      res.json(status);
+    } catch (error) {
+      console.error("Error fetching budget status:", error);
+      res.status(500).json({ message: "Failed to fetch budget status" });
+    }
+  });
+
+  // Account routes
+  app.get('/api/accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const accounts = await storage.getAccounts(userId);
+      res.json(accounts);
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+      res.status(500).json({ message: "Failed to fetch accounts" });
+    }
+  });
+
+  app.post('/api/accounts', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const accountData = insertAccountSchema.parse({ ...req.body, userId });
+      const account = await storage.createAccount(accountData);
+      res.status(201).json(account);
+    } catch (error) {
+      console.error("Error creating account:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  app.put('/api/accounts/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const accountData = insertAccountSchema.partial().parse(req.body);
+      const account = await storage.updateAccount(id, accountData, userId);
+      res.json(account);
+    } catch (error) {
+      console.error("Error updating account:", error);
+      res.status(500).json({ message: "Failed to update account" });
+    }
+  });
+
+  // Journal entry routes
+  app.get('/api/journal-entries', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { accountId } = req.query;
+      const entries = await storage.getJournalEntries(userId, accountId ? parseInt(accountId as string) : undefined);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching journal entries:", error);
+      res.status(500).json({ message: "Failed to fetch journal entries" });
+    }
+  });
+
+  app.post('/api/journal-entries', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const entryData = insertJournalEntrySchema.parse({ ...req.body, userId });
+      const entry = await storage.createJournalEntry(entryData);
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating journal entry:", error);
+      res.status(500).json({ message: "Failed to create journal entry" });
+    }
+  });
+
+  app.get('/api/trial-balance', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const trialBalance = await storage.getTrialBalance(userId);
+      res.json(trialBalance);
+    } catch (error) {
+      console.error("Error fetching trial balance:", error);
+      res.status(500).json({ message: "Failed to fetch trial balance" });
+    }
+  });
+
+  // Enhanced transaction route to include updating transaction
+  app.put('/api/transactions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const transactionData = insertTransactionSchema.partial().parse(req.body);
+      const transaction = await storage.updateTransaction(id, transactionData, userId);
+      res.json(transaction);
+    } catch (error) {
+      console.error("Error updating transaction:", error);
+      res.status(500).json({ message: "Failed to update transaction" });
+    }
+  });
+
+  app.delete('/api/transactions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      await storage.deleteTransaction(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      res.status(500).json({ message: "Failed to delete transaction" });
     }
   });
 

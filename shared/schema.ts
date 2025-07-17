@@ -144,6 +144,48 @@ export const maintenanceRecords = pgTable("maintenance_records", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Budgets
+export const budgets = pgTable("budgets", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  name: varchar("name").notNull(),
+  category: varchar("category").notNull(),
+  budgetType: varchar("budget_type").notNull(), // monthly, yearly, quarterly
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  period: varchar("period").notNull(), // 2024-01, 2024, 2024-Q1
+  alertThreshold: decimal("alert_threshold", { precision: 5, scale: 2 }).default("80.00"), // percentage
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Accounts for double-entry accounting
+export const accounts = pgTable("accounts", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  accountNumber: varchar("account_number").notNull(),
+  name: varchar("name").notNull(),
+  type: varchar("type").notNull(), // asset, liability, equity, revenue, expense
+  subType: varchar("sub_type"), // cash, accounts_receivable, inventory, etc.
+  balance: decimal("balance", { precision: 12, scale: 2 }).default("0.00"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Journal entries for double-entry accounting
+export const journalEntries = pgTable("journal_entries", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  transactionId: integer("transaction_id").references(() => transactions.id),
+  accountId: integer("account_id").notNull().references(() => accounts.id),
+  entryType: varchar("entry_type").notNull(), // debit, credit
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  description: text("description"),
+  date: date("date").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Documents
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
@@ -170,6 +212,9 @@ export const usersRelations = relations(users, ({ many }) => ({
   equipment: many(equipment),
   maintenanceRecords: many(maintenanceRecords),
   documents: many(documents),
+  budgets: many(budgets),
+  accounts: many(accounts),
+  journalEntries: many(journalEntries),
 }));
 
 export const animalsRelations = relations(animals, ({ one, many }) => ({
@@ -210,6 +255,21 @@ export const maintenanceRecordsRelations = relations(maintenanceRecords, ({ one 
 
 export const documentsRelations = relations(documents, ({ one }) => ({
   user: one(users, { fields: [documents.userId], references: [users.id] }),
+}));
+
+export const budgetsRelations = relations(budgets, ({ one }) => ({
+  user: one(users, { fields: [budgets.userId], references: [users.id] }),
+}));
+
+export const accountsRelations = relations(accounts, ({ one, many }) => ({
+  user: one(users, { fields: [accounts.userId], references: [users.id] }),
+  journalEntries: many(journalEntries),
+}));
+
+export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
+  user: one(users, { fields: [journalEntries.userId], references: [users.id] }),
+  transaction: one(transactions, { fields: [journalEntries.transactionId], references: [transactions.id] }),
+  account: one(accounts, { fields: [journalEntries.accountId], references: [accounts.id] }),
 }));
 
 // Insert schemas
@@ -256,6 +316,23 @@ export const insertDocumentSchema = createInsertSchema(documents).omit({
   createdAt: true,
 });
 
+export const insertBudgetSchema = createInsertSchema(budgets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAccountSchema = createInsertSchema(accounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -283,3 +360,12 @@ export type MaintenanceRecord = typeof maintenanceRecords.$inferSelect;
 
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Document = typeof documents.$inferSelect;
+
+export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+export type Budget = typeof budgets.$inferSelect;
+
+export type InsertAccount = z.infer<typeof insertAccountSchema>;
+export type Account = typeof accounts.$inferSelect;
+
+export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+export type JournalEntry = typeof journalEntries.$inferSelect;

@@ -257,7 +257,7 @@ export class DatabaseStorage implements IStorage {
     expensesByCategory: Array<{ category: string; amount: number }>;
   }> {
     const conditions = [eq(transactions.userId, userId)];
-    
+
     if (startDate) {
       conditions.push(gte(transactions.date, startDate.toISOString().split('T')[0]));
     }
