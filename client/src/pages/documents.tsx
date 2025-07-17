@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, FileText, Image, Receipt, Award, Search, Filter, Download } from "lucide-react";
+import DocumentForm from "@/components/forms/document-form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -102,11 +103,7 @@ export default function Documents() {
               <DialogHeader>
                 <DialogTitle>Upload New Document</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="text-center py-8 text-gray-500">
-                  Document upload form would be implemented here with file upload capabilities
-                </div>
-              </div>
+              <DocumentForm onClose={() => setIsAddDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>

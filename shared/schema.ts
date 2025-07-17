@@ -48,7 +48,7 @@ export const animals = pgTable("animals", {
   breed: varchar("breed"),
   gender: varchar("gender").notNull(), // male, female
   birthDate: date("birth_date"),
-  weight: decimal("weight", { precision: 8, scale: 2 }),
+  weight: varchar("weight"),
   color: varchar("color"),
   location: varchar("location"),
   status: varchar("status").default("active").notNull(), // active, sold, deceased

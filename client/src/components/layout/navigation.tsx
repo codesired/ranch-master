@@ -8,7 +8,8 @@ import {
   Wrench, 
   FileText, 
   ChartBar,
-  BookOpen
+  BookOpen,
+  User
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { path: "/documents", label: "Documents", icon: FileText },
   { path: "/reports", label: "Reports", icon: ChartBar },
   { path: "/manual", label: "Manual", icon: BookOpen },
+  { path: "/profile", label: "Profile", icon: User },
 ];
 
 export default function Navigation() {
@@ -32,7 +34,7 @@ export default function Navigation() {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.path;
-            
+
             return (
               <Button
                 key={item.path}

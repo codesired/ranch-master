@@ -19,6 +19,20 @@ interface AnimalFormProps {
   onSuccess?: () => void;
 }
 
+const getBreedOptions = (species: string) => {
+  const breedOptions = {
+    "Cattle": ["Angus", "Hereford", "Holstein", "Jersey", "Charolais", "Simmental", "Limousin", "Other"],
+    "Sheep": ["Merino", "Suffolk", "Dorset", "Romney", "Corriedale", "Border Leicester", "Other"],
+    "Goats": ["Boer", "Nubian", "Saanen", "Alpine", "LaMancha", "Toggenburg", "Other"],
+    "Pigs": ["Yorkshire", "Duroc", "Hampshire", "Landrace", "Berkshire", "Chester White", "Other"],
+    "Chickens": ["Rhode Island Red", "Leghorn", "Plymouth Rock", "Wyandotte", "Orpington", "Other"],
+    "Horses": ["Arabian", "Thoroughbred", "Quarter Horse", "Paint", "Appaloosa", "Clydesdale", "Other"],
+    "Other": ["Mixed", "Unknown", "Other"]
+  };
+  
+  return breedOptions[species] || ["Other"];
+};
+
 export default function AnimalForm({ onSuccess }: AnimalFormProps) {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
@@ -121,23 +135,31 @@ export default function AnimalForm({ onSuccess }: AnimalFormProps) {
                   <SelectValue placeholder="Select species" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cattle">Cattle</SelectItem>
-                  <SelectItem value="sheep">Sheep</SelectItem>
-                  <SelectItem value="goat">Goat</SelectItem>
-                  <SelectItem value="pig">Pig</SelectItem>
-                  <SelectItem value="horse">Horse</SelectItem>
+                  <SelectItem value="Cattle">Cattle</SelectItem>
+                  <SelectItem value="Sheep">Sheep</SelectItem>
+                  <SelectItem value="Goats">Goats</SelectItem>
+                  <SelectItem value="Pigs">Pigs</SelectItem>
+                  <SelectItem value="Chickens">Chickens</SelectItem>
+                  <SelectItem value="Horses">Horses</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="breed">Breed</Label>
-              <Input
-                id="breed"
-                placeholder="e.g., Holstein, Angus"
-                value={formData.breed}
-                onChange={(e) => handleInputChange("breed", e.target.value)}
-              />
+              <Select onValueChange={(value) => handleInputChange("breed", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select breed" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getBreedOptions(formData.species).map((breed) => (
+                    <SelectItem key={breed} value={breed}>
+                      {breed}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

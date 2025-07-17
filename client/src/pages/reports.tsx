@@ -137,6 +137,75 @@ export default function Reports() {
     return acc;
   }, {} as Record<string, number>) || {};
 
+  const generateReport = () => {
+    const reportData = {
+      reportDate: new Date().toISOString(),
+      period: selectedPeriod,
+      summary: {
+        totalAnimals: animals?.length || 0,
+        totalRevenue: financialSummary?.totalIncome || 0,
+        netProfit: financialSummary?.netProfit || 0,
+        inventoryItems: inventory?.length || 0,
+      },
+      livestockBreakdown: livestockBySpecies,
+      inventoryBreakdown: inventoryByCategory,
+      financialBreakdown: {
+        income: financialSummary?.incomeByCategory || [],
+        expenses: financialSummary?.expensesByCategory || [],
+      },
+    };
+
+    // Convert to CSV format
+    const csvContent = generateCSVReport(reportData);
+    downloadCSV(csvContent, `ranch-report-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`);
+    
+    toast({
+      title: "Report Generated",
+      description: "Your ranch report has been generated and downloaded.",
+    });
+  };
+
+  const generateCSVReport = (data: any) => {
+    let csv = "Ranch Management Report\n\n";
+    csv += `Report Date,${data.reportDate}\n`;
+    csv += `Period,${data.period}\n\n`;
+    
+    csv += "Summary\n";
+    csv += "Metric,Value\n";
+    csv += `Total Animals,${data.summary.totalAnimals}\n`;
+    csv += `Total Revenue,$${data.summary.totalRevenue}\n`;
+    csv += `Net Profit,$${data.summary.netProfit}\n`;
+    csv += `Inventory Items,${data.summary.inventoryItems}\n\n`;
+    
+    csv += "Livestock by Species\n";
+    csv += "Species,Count\n";
+    Object.entries(data.livestockBreakdown).forEach(([species, count]) => {
+      csv += `${species},${count}\n`;
+    });
+    
+    csv += "\nInventory by Category\n";
+    csv += "Category,Count\n";
+    Object.entries(data.inventoryBreakdown).forEach(([category, count]) => {
+      csv += `${category},${count}\n`;
+    });
+    
+    return csv;
+  };
+
+  const downloadCSV = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -156,7 +225,10 @@ export default function Reports() {
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>
           </select>
-          <Button className="ranch-button-primary">
+          <Button 
+            className="ranch-button-primary"
+            onClick={() => generateReport()}
+          >
             <FileText className="h-4 w-4 mr-2" />
             Generate Report
           </Button>
