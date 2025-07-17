@@ -8,27 +8,38 @@ import {
   equipment,
   maintenanceRecords,
   documents,
-  type User,
-  type UpsertUser,
-  type Animal,
-  type InsertAnimal,
-  type HealthRecord,
-  type InsertHealthRecord,
-  type BreedingRecord,
-  type InsertBreedingRecord,
-  type Transaction,
-  type InsertTransaction,
-  type Inventory,
-  type InsertInventory,
-  type Equipment,
-  type InsertEquipment,
-  type MaintenanceRecord,
-  type InsertMaintenanceRecord,
-  type Document,
-  type InsertDocument,
+  budgets,
+  accounts,
+  journalEntries
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, count, sum, gte, lte } from "drizzle-orm";
+import { desc, eq, and, gte, lte, isNull, or, sql } from "drizzle-orm";
+import type { 
+  UpsertUser, 
+  User, 
+  InsertAnimal, 
+  Animal, 
+  InsertHealthRecord, 
+  HealthRecord, 
+  InsertBreedingRecord, 
+  BreedingRecord, 
+  InsertTransaction, 
+  Transaction, 
+  InsertInventory, 
+  Inventory, 
+  InsertEquipment, 
+  Equipment, 
+  InsertMaintenanceRecord, 
+  MaintenanceRecord, 
+  InsertDocument, 
+  Document,
+  InsertBudget,
+  Budget,
+  InsertAccount,
+  Account,
+  InsertJournalEntry,
+  JournalEntry
+} from "@shared/schema";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -91,6 +102,24 @@ export interface IStorage {
   createDocument(document: InsertDocument): Promise<Document>;
   updateDocument(id: number, document: Partial<InsertDocument>, userId: string): Promise<Document>;
   deleteDocument(id: number, userId: string): Promise<void>;
+
+    // Budget operations
+  getBudgets(userId: string): Promise<Budget[]>;
+  createBudget(budget: InsertBudget): Promise<Budget>;
+  updateBudget(id: number, budget: Partial<InsertBudget>, userId: string): Promise<Budget>;
+  deleteBudget(id: number, userId: string): Promise<void>;
+
+  // Account operations
+  getAccounts(userId: string): Promise<Account[]>;
+  createAccount(account: InsertAccount): Promise<Account>;
+  updateAccount(id: number, account: Partial<InsertAccount>, userId: string): Promise<Account>;
+  deleteAccount(id: number, userId: string): Promise<void>;
+
+  // Journal Entry operations
+  getJournalEntries(userId: string): Promise<JournalEntry[]>;
+  createJournalEntry(journalEntry: InsertJournalEntry): Promise<JournalEntry>;
+  updateJournalEntry(id: number, journalEntry: Partial<InsertJournalEntry>, userId: string): Promise<JournalEntry>;
+  deleteJournalEntry(id: number, userId: string): Promise<void>;
 
   // Dashboard operations
   getDashboardStats(userId: string): Promise<{
@@ -429,6 +458,93 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(documents)
       .where(and(eq(documents.id, id), eq(documents.userId, userId)));
+  }
+
+    // Budget operations
+  async getBudgets(userId: string): Promise<Budget[]> {
+    return await db
+      .select()
+      .from(budgets)
+      .where(eq(budgets.userId, userId))
+      .orderBy(desc(budgets.createdAt));
+  }
+
+  async createBudget(budget: InsertBudget): Promise<Budget> {
+    const [newBudget] = await db.insert(budgets).values(budget).returning();
+    return newBudget;
+  }
+
+  async updateBudget(id: number, budget: Partial<InsertBudget>, userId: string): Promise<Budget> {
+    const [updatedBudget] = await db
+      .update(budgets)
+      .set(budget)
+      .where(and(eq(budgets.id, id), eq(budgets.userId, userId)))
+      .returning();
+    return updatedBudget;
+  }
+
+  async deleteBudget(id: number, userId: string): Promise<void> {
+    await db
+      .delete(budgets)
+      .where(and(eq(budgets.id, id), eq(budgets.userId, userId)));
+  }
+
+  // Account operations
+  async getAccounts(userId: string): Promise<Account[]> {
+    return await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.userId, userId))
+      .orderBy(desc(accounts.createdAt));
+  }
+
+  async createAccount(account: InsertAccount): Promise<Account> {
+    const [newAccount] = await db.insert(accounts).values(account).returning();
+    return newAccount;
+  }
+
+  async updateAccount(id: number, account: Partial<InsertAccount>, userId: string): Promise<Account> {
+    const [updatedAccount] = await db
+      .update(accounts)
+      .set(account)
+      .where(and(eq(accounts.id, id), eq(accounts.userId, userId)))
+      .returning();
+    return updatedAccount;
+  }
+
+  async deleteAccount(id: number, userId: string): Promise<void> {
+    await db
+      .delete(accounts)
+      .where(and(eq(accounts.id, id), eq(accounts.userId, userId)));
+  }
+
+  // Journal Entry operations
+  async getJournalEntries(userId: string): Promise<JournalEntry[]> {
+    return await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.userId, userId))
+      .orderBy(desc(journalEntries.date));
+  }
+
+  async createJournalEntry(journalEntry: InsertJournalEntry): Promise<JournalEntry> {
+    const [newJournalEntry] = await db.insert(journalEntries).values(journalEntry).returning();
+    return newJournalEntry;
+  }
+
+  async updateJournalEntry(id: number, journalEntry: Partial<InsertJournalEntry>, userId: string): Promise<JournalEntry> {
+    const [updatedJournalEntry] = await db
+      .update(journalEntries)
+      .set(journalEntry)
+      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)))
+      .returning();
+    return updatedJournalEntry;
+  }
+
+  async deleteJournalEntry(id: number, userId: string): Promise<void> {
+    await db
+      .delete(journalEntries)
+      .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
   }
 
   // Dashboard operations

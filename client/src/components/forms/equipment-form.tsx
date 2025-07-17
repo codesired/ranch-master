@@ -2,66 +2,65 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { insertEquipmentSchema, type InsertEquipment } from "@shared/schema";
-import { CalendarIcon } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
 
 interface EquipmentFormProps {
   onClose: () => void;
   equipment?: any;
 }
 
-const equipmentSchema = insertEquipmentSchema;
-
 export default function EquipmentForm({ onClose, equipment }: EquipmentFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<InsertEquipment>({
-    resolver: zodResolver(equipmentSchema),
-    defaultValues: equipment || {
-      name: "",
-      type: "",
-      model: "",
-      serialNumber: "",
-      manufacturer: "",
-      status: "operational",
-      location: "",
-      purchasePrice: 0,
-      currentValue: 0,
-      description: "",
+    resolver: zodResolver(insertEquipmentSchema),
+    defaultValues: {
+      name: equipment?.name || "",
+      type: equipment?.type || "",
+      model: equipment?.model || "",
+      serialNumber: equipment?.serialNumber || "",
+      purchaseDate: equipment?.purchaseDate || "",
+      purchasePrice: equipment?.purchasePrice || "",
+      status: equipment?.status || "operational",
+      location: equipment?.location || "",
+      notes: equipment?.notes || "",
     },
   });
 
   const mutation = useMutation({
     mutationFn: async (data: InsertEquipment) => {
       const url = equipment ? `/api/equipment/${equipment.id}` : "/api/equipment";
-      const method = equipment ? "PATCH" : "POST";
-      return await apiRequest(url, {
+      const method = equipment ? "PUT" : "POST";
+
+      const response = await fetch(url, {
         method,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to save equipment");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/equipment"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: `Equipment ${equipment ? "updated" : "created"} successfully`,
       });
       onClose();
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Error",
         description: error.message,
@@ -148,20 +147,6 @@ export default function EquipmentForm({ onClose, equipment }: EquipmentFormProps
 
           <FormField
             control={form.control}
-            name="manufacturer"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Manufacturer</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter manufacturer" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
             name="model"
             render={({ field }) => (
               <FormItem>
@@ -182,6 +167,34 @@ export default function EquipmentForm({ onClose, equipment }: EquipmentFormProps
                 <FormLabel>Serial Number</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter serial number" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="purchaseDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Purchase Date</FormLabel>
+                <FormControl>
+                  <Input type="date" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="purchasePrice"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Purchase Price</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" placeholder="0.00" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -226,149 +239,28 @@ export default function EquipmentForm({ onClose, equipment }: EquipmentFormProps
               </FormItem>
             )}
           />
-
-          <FormField
-            control={form.control}
-            name="purchasePrice"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Purchase Price ($)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="currentValue"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Current Value ($)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="purchaseDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Purchase Date (Optional)</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={`w-full pl-3 text-left font-normal ${
-                          !field.value && "text-muted-foreground"
-                        }`}
-                      >
-                        {field.value ? (
-                          format(new Date(field.value), "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                      disabled={(date) => date > new Date()}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="warrantyExpiry"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Warranty Expiry (Optional)</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant={"outline"}
-                        className={`w-full pl-3 text-left font-normal ${
-                          !field.value && "text-muted-foreground"
-                        }`}
-                      >
-                        {field.value ? (
-                          format(new Date(field.value), "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
 
         <FormField
           control={form.control}
-          name="description"
+          name="notes"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Enter equipment description..."
-                  {...field}
-                />
+                <Textarea placeholder="Enter any additional notes" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <div className="flex justify-end space-x-2">
+        <div className="flex justify-end space-x-4">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="ranch-button-primary">
-            {isSubmitting ? "Saving..." : equipment ? "Update" : "Create"} Equipment
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : equipment ? "Update Equipment" : "Add Equipment"}
           </Button>
         </div>
       </form>

@@ -258,6 +258,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put('/api/equipment/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const equipmentData = insertEquipmentSchema.partial().parse(req.body);
+      const equipment = await storage.updateEquipment(id, equipmentData, userId);
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error updating equipment:", error);
+      res.status(500).json({ message: "Failed to update equipment" });
+    }
+  });
+
+  app.delete('/api/equipment/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      await storage.deleteEquipment(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting equipment:", error);
+      res.status(500).json({ message: "Failed to delete equipment" });
+    }
+  });
+
   // Maintenance records routes
   app.get('/api/equipment/:equipmentId/maintenance-records', isAuthenticated, async (req: any, res) => {
     try {

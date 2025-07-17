@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus, Wrench, AlertTriangle, Truck, Calendar } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import EquipmentForm from "@/components/forms/equipment-form";
 
 export default function Equipment() {
   const { toast } = useToast();
@@ -101,7 +102,7 @@ export default function Equipment() {
               <DialogHeader>
                 <DialogTitle>Add New Equipment</DialogTitle>
               </DialogHeader>
-              {/* Equipment form would go here */}
+              <EquipmentForm onClose={() => setIsAddDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </div>
