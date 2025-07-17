@@ -13,7 +13,7 @@ import {
   journalEntries
 } from "@shared/schema";
 import { db } from "./db";
-import { desc, eq, and, gte, lte, isNull, or, sql } from "drizzle-orm";
+import { desc, eq, and, gte, lte, isNull, or, sql, sum, count } from "drizzle-orm";
 import type { 
   UpsertUser, 
   User, 
@@ -547,6 +547,44 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(journalEntries.id, id), eq(journalEntries.userId, userId)));
   }
 
+  // Budget status operations
+  async getBudgetStatus(userId: string, period?: string): Promise<any[]> {
+    const conditions = [eq(budgets.userId, userId)];
+    
+    if (period) {
+      conditions.push(eq(budgets.period, period));
+    }
+
+    try {
+      const budgetStatus = await db
+        .select()
+        .from(budgets)
+        .where(and(...conditions))
+        .orderBy(desc(budgets.createdAt));
+
+      return budgetStatus;
+    } catch (error) {
+      console.error("Error fetching budget status:", error);
+      return [];
+    }
+  }
+
+  // Trial balance operations
+  async getTrialBalance(userId: string): Promise<any[]> {
+    try {
+      const trialBalance = await db
+        .select()
+        .from(accounts)
+        .where(eq(accounts.userId, userId))
+        .orderBy(accounts.name);
+
+      return trialBalance;
+    } catch (error) {
+      console.error("Error fetching trial balance:", error);
+      return [];
+    }
+  }
+
   // Dashboard operations
   async getDashboardStats(userId: string): Promise<{
     totalAnimals: number;
@@ -563,31 +601,34 @@ export class DatabaseStorage implements IStorage {
     const monthEnd = new Date(currentYear, currentMonth + 1, 0);
 
     // Count total animals
-    const [animalCount] = await db
+    const animalCountResult = await db
       .select({ count: count() })
       .from(animals)
       .where(and(eq(animals.userId, userId), eq(animals.status, 'active')));
+    const animalCount = animalCountResult[0] || { count: 0 };
 
     // Count health alerts (overdue vaccinations/treatments)
-    const [healthAlertsCount] = await db
+    const healthAlertsResult = await db
       .select({ count: count() })
       .from(healthRecords)
       .where(and(
         eq(healthRecords.userId, userId),
         lte(healthRecords.nextDueDate, now.toISOString().split('T')[0])
       ));
+    const healthAlertsCount = healthAlertsResult[0] || { count: 0 };
 
     // Count low stock items
     const lowStockCount = await this.getLowStockItems(userId);
 
     // Count equipment issues
-    const [equipmentIssuesCount] = await db
+    const equipmentIssuesResult = await db
       .select({ count: count() })
       .from(equipment)
       .where(and(
         eq(equipment.userId, userId),
-        // status is 'maintenance' or 'repair'
+        or(eq(equipment.status, 'maintenance'), eq(equipment.status, 'repair'))
       ));
+    const equipmentIssuesCount = equipmentIssuesResult[0] || { count: 0 };
 
     // Calculate monthly revenue and expenses
     const monthlyTransactions = await db
