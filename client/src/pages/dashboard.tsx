@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -12,11 +12,13 @@ import EquipmentStatus from "@/components/equipment/equipment-status";
 import FinancialSummary from "@/components/finances/financial-summary";
 import LoadingSpinner from "@/components/shared/loading-spinner";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Database, Sparkles } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Dashboard() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
+  const queryClient = useQueryClient();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -51,6 +53,34 @@ export default function Dashboard() {
     },
   });
 
+  const seedMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("/api/seed-database", {
+        method: "POST",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      toast({
+        title: "Success",
+        description: "Database seeded with sample data successfully!",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSeedDatabase = () => {
+    if (window.confirm("This will add sample data to your ranch management system. Continue?")) {
+      seedMutation.mutate();
+    }
+  };
+
   if (isLoading || statsLoading) {
     return <LoadingSpinner />;
   }
@@ -69,6 +99,15 @@ export default function Dashboard() {
             <option>Last 90 Days</option>
             <option>This Year</option>
           </select>
+          <Button 
+            variant="outline" 
+            className="ranch-button-secondary"
+            onClick={handleSeedDatabase}
+            disabled={seedMutation.isPending}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            {seedMutation.isPending ? "Seeding..." : "Seed Data"}
+          </Button>
           <Button className="ranch-button-primary">
             <Plus className="h-4 w-4 mr-2" />
             Add Record

@@ -13,6 +13,7 @@ import Inventory from "@/pages/inventory";
 import Equipment from "@/pages/equipment";
 import Documents from "@/pages/documents";
 import Reports from "@/pages/reports";
+import Manual from "@/pages/manual";
 import Header from "@/components/layout/header";
 import Navigation from "@/components/layout/navigation";
 import MobileNav from "@/components/layout/mobile-nav";
@@ -49,6 +50,7 @@ function Router() {
                 <Route path="/equipment" component={Equipment} />
                 <Route path="/documents" component={Documents} />
                 <Route path="/reports" component={Reports} />
+                <Route path="/manual" component={Manual} />
                 <Route component={NotFound} />
               </Switch>
             </main>

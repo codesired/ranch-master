@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { seedDatabase } from "./seed-data";
 import { 
   insertAnimalSchema,
   insertHealthRecordSchema,
@@ -326,6 +327,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching weather:", error);
       res.status(500).json({ message: "Failed to fetch weather data" });
+    }
+  });
+
+  // Seed database endpoint
+  app.post('/api/seed-database', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const success = await seedDatabase(userId);
+      if (success) {
+        res.json({ message: "Database seeded successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to seed database" });
+      }
+    } catch (error) {
+      console.error("Error seeding database:", error);
+      res.status(500).json({ message: "Failed to seed database" });
     }
   });
 

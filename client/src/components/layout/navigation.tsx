@@ -7,7 +7,8 @@ import {
   Package, 
   Wrench, 
   FileText, 
-  ChartBar 
+  ChartBar,
+  BookOpen
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { path: "/equipment", label: "Equipment", icon: Wrench },
   { path: "/documents", label: "Documents", icon: FileText },
   { path: "/reports", label: "Reports", icon: ChartBar },
+  { path: "/manual", label: "Manual", icon: BookOpen },
 ];
 
 export default function Navigation() {

@@ -5,16 +5,28 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/shared/loading-spinner";
+import TransactionForm from "@/components/forms/transaction-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, DollarSign, TrendingUp, TrendingDown, Edit, Trash2, Filter, Search } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { format } from "date-fns";
 
 export default function Finances() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const queryClient = useQueryClient();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -67,6 +79,56 @@ export default function Finances() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/transactions/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({
+        title: "Success",
+        description: "Transaction deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this transaction?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleEdit = (transaction: any) => {
+    setSelectedTransaction(transaction);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleClose = () => {
+    setSelectedTransaction(null);
+    setIsAddDialogOpen(false);
+  };
+
+  const filteredTransactions = transactions?.filter((transaction: any) => {
+    const matchesSearch = transaction.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      transaction.category?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === "all" || transaction.type === filterType;
+    const matchesCategory = filterCategory === "all" || transaction.category === filterCategory;
+    return matchesSearch && matchesType && matchesCategory;
+  }) || [];
+
+  const allCategories = [...new Set(transactions?.map((t: any) => t.category) || [])];
+
   if (isLoading || transactionsLoading || summaryLoading) {
     return <LoadingSpinner />;
   }
@@ -95,9 +157,14 @@ export default function Finances() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Add New Transaction</DialogTitle>
+                <DialogTitle>
+                  {selectedTransaction ? "Edit Transaction" : "Add New Transaction"}
+                </DialogTitle>
               </DialogHeader>
-              {/* Transaction form would go here */}
+              <TransactionForm
+                onClose={handleClose}
+                transaction={selectedTransaction}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -205,14 +272,52 @@ export default function Finances() {
         </Card>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Transaction Management */}
       <Card className="ranch-card">
         <CardHeader>
-          <CardTitle className="text-dark-green">Recent Transactions</CardTitle>
-          <CardDescription>Latest financial activity</CardDescription>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+            <div>
+              <CardTitle className="text-dark-green">All Transactions</CardTitle>
+              <CardDescription>Manage and filter your financial transactions</CardDescription>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Search transactions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-64"
+                />
+              </div>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="income">Income</SelectItem>
+                  <SelectItem value="expense">Expense</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {allCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          {transactions && transactions.length > 0 ? (
+          {filteredTransactions.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -222,34 +327,53 @@ export default function Finances() {
                     <TableHead>Category</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.slice(0, 10).map((transaction) => (
+                  {filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell className="font-medium">
-                        {new Date(transaction.date).toLocaleDateString()}
+                        {format(new Date(transaction.date), "MMM dd, yyyy")}
                       </TableCell>
                       <TableCell>{transaction.description}</TableCell>
                       <TableCell>
-                        <span className="px-2 py-1 text-xs font-medium bg-light-grey rounded-full">
+                        <Badge variant="outline" className="bg-light-grey">
                           {transaction.category}
-                        </span>
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          transaction.type === 'income' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <Badge 
+                          variant={transaction.type === 'income' ? 'default' : 'destructive'}
+                          className={transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                        >
                           {transaction.type}
-                        </span>
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         <span className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
                           {transaction.type === 'income' ? '+' : '-'}$
                           {parseFloat(transaction.amount).toLocaleString()}
                         </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(transaction)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(transaction.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

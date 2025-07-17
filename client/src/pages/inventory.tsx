@@ -1,22 +1,32 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/shared/loading-spinner";
+import InventoryForm from "@/components/forms/inventory-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Package, AlertTriangle, TrendingDown } from "lucide-react";
+import { Plus, Package, AlertTriangle, TrendingDown, Edit, Trash2, Search, Filter } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { apiRequest } from "@/lib/queryClient";
+import { format } from "date-fns";
 
 export default function Inventory() {
   const { toast } = useToast();
   const { isAuthenticated, isLoading } = useAuth();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterLowStock, setFilterLowStock] = useState(false);
+  const queryClient = useQueryClient();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -69,6 +79,56 @@ export default function Inventory() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/inventory/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/inventory/low-stock"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({
+        title: "Success",
+        description: "Item deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this item?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleEdit = (item: any) => {
+    setSelectedItem(item);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleClose = () => {
+    setSelectedItem(null);
+    setIsAddDialogOpen(false);
+  };
+
+  const filteredInventory = inventory?.filter((item: any) => {
+    const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = filterCategory === "all" || item.category === filterCategory;
+    const matchesLowStock = !filterLowStock || item.quantity <= item.lowStockThreshold;
+    return matchesSearch && matchesCategory && matchesLowStock;
+  }) || [];
+
+  const allCategories = [...new Set(inventory?.map((item: any) => item.category) || [])];
+
   if (isLoading || inventoryLoading || lowStockLoading) {
     return <LoadingSpinner />;
   }
@@ -110,9 +170,14 @@ export default function Inventory() {
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
-                <DialogTitle>Add New Inventory Item</DialogTitle>
+                <DialogTitle>
+                  {selectedItem ? "Edit Inventory Item" : "Add New Inventory Item"}
+                </DialogTitle>
               </DialogHeader>
-              {/* Inventory form would go here */}
+              <InventoryForm
+                onClose={handleClose}
+                item={selectedItem}
+              />
             </DialogContent>
           </Dialog>
         </div>

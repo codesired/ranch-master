@@ -256,21 +256,23 @@ export class DatabaseStorage implements IStorage {
     incomeByCategory: Array<{ category: string; amount: number }>;
     expensesByCategory: Array<{ category: string; amount: number }>;
   }> {
-    let query = db
+    const conditions = [eq(transactions.userId, userId)];
+    
+    if (startDate) {
+      conditions.push(gte(transactions.date, startDate.toISOString().split('T')[0]));
+    }
+    if (endDate) {
+      conditions.push(lte(transactions.date, endDate.toISOString().split('T')[0]));
+    }
+
+    const query = db
       .select({
         type: transactions.type,
         category: transactions.category,
         total: sum(transactions.amount),
       })
       .from(transactions)
-      .where(eq(transactions.userId, userId));
-
-    if (startDate) {
-      query = query.where(gte(transactions.date, startDate.toISOString().split('T')[0]));
-    }
-    if (endDate) {
-      query = query.where(lte(transactions.date, endDate.toISOString().split('T')[0]));
-    }
+      .where(and(...conditions));
 
     const results = await query
       .groupBy(transactions.type, transactions.category)
