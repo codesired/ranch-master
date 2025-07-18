@@ -1,203 +1,278 @@
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { insertBudgetSchema, type InsertBudget } from "@/../shared/schema";
+
+const budgetFormSchema = z.object({
+  name: z.string().min(1, "Budget name is required"),
+  category: z.string().min(1, "Category is required"),
+  allocatedAmount: z.number().min(0, "Allocated amount must be positive"),
+  period: z.enum(["monthly", "quarterly", "yearly"]),
+  description: z.string().optional(),
+  startDate: z.string().min(1, "Start date is required"),
+  endDate: z.string().min(1, "End date is required"),
+  isActive: z.boolean().default(true),
+});
+
+type BudgetFormData = z.infer<typeof budgetFormSchema>;
 
 interface BudgetFormProps {
   onSuccess?: () => void;
+  initialData?: Partial<BudgetFormData> & { id?: number };
 }
 
-function BudgetForm({ onSuccess }: BudgetFormProps) {
+export default function BudgetForm({ onSuccess, initialData }: BudgetFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<InsertBudget>({
-    resolver: zodResolver(insertBudgetSchema.omit({ userId: true })),
+  const form = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetFormSchema),
     defaultValues: {
-      name: "",
-      category: "",
-      amount: 0,
-      period: "monthly",
-      alertThreshold: 80,
-      description: "",
+      name: initialData?.name || "",
+      category: initialData?.category || "",
+      allocatedAmount: initialData?.allocatedAmount || 0,
+      period: initialData?.period || "monthly",
+      description: initialData?.description || "",
+      startDate: initialData?.startDate || "",
+      endDate: initialData?.endDate || "",
+      isActive: initialData?.isActive ?? true,
     },
   });
 
   const createBudgetMutation = useMutation({
-    mutationFn: async (data: InsertBudget) => {
+    mutationFn: async (data: BudgetFormData) => {
       const response = await fetch("/api/budgets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      
       if (!response.ok) {
         throw new Error("Failed to create budget");
       }
+      
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
-      toast({
-        title: "Success",
-        description: "Budget created successfully",
-      });
+      toast({ title: "Budget created successfully" });
       form.reset();
       onSuccess?.();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: "Failed to create budget",
+        title: "Error creating budget",
+        description: error.message,
         variant: "destructive",
       });
-      console.error("Budget creation error:", error);
     },
   });
 
-  const onSubmit = async (data: InsertBudget) => {
+  const updateBudgetMutation = useMutation({
+    mutationFn: async (data: BudgetFormData) => {
+      const response = await fetch(`/api/budgets/${initialData?.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update budget");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
+      toast({ title: "Budget updated successfully" });
+      onSuccess?.();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating budget",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = async (data: BudgetFormData) => {
     setIsSubmitting(true);
     try {
-      await createBudgetMutation.mutateAsync(data);
+      if (initialData?.id) {
+        await updateBudgetMutation.mutateAsync(data);
+      } else {
+        await createBudgetMutation.mutateAsync(data);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Card className="ranch-card">
+    <Card>
       <CardHeader>
-        <CardTitle>Create Budget</CardTitle>
-        <CardDescription>
-          Set up a budget to track and manage your expenses
-        </CardDescription>
+        <CardTitle>
+          {initialData?.id ? "Edit Budget" : "Create New Budget"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Budget Name</Label>
-              <Input
-                id="name"
-                {...form.register("name")}
-                placeholder="Feed Budget"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Budget Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Feed expenses, Equipment maintenance..." {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="feed">Feed</SelectItem>
+                      <SelectItem value="veterinary">Veterinary</SelectItem>
+                      <SelectItem value="equipment">Equipment</SelectItem>
+                      <SelectItem value="maintenance">Maintenance</SelectItem>
+                      <SelectItem value="labor">Labor</SelectItem>
+                      <SelectItem value="utilities">Utilities</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="allocatedAmount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Allocated Amount ($)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="period"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Budget Period</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select period" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                      <SelectItem value="quarterly">Quarterly</SelectItem>
+                      <SelectItem value="yearly">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {form.formState.errors.name && (
-                <p className="text-sm text-red-600">{form.formState.errors.name.message}</p>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Select
-                value={form.watch("category")}
-                onValueChange={(value) => form.setValue("category", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="feed">Feed</SelectItem>
-                  <SelectItem value="veterinary">Veterinary</SelectItem>
-                  <SelectItem value="equipment">Equipment</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="utilities">Utilities</SelectItem>
-                  <SelectItem value="labor">Labor</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.formState.errors.category && (
-                <p className="text-sm text-red-600">{form.formState.errors.category.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="amount">Budget Amount ($)</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                {...form.register("amount", { valueAsNumber: true })}
-                placeholder="1000.00"
-              />
-              {form.formState.errors.amount && (
-                <p className="text-sm text-red-600">{form.formState.errors.amount.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="period">Period</Label>
-              <Select
-                value={form.watch("period")}
-                onValueChange={(value) => form.setValue("period", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select period" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="quarterly">Quarterly</SelectItem>
-                  <SelectItem value="yearly">Yearly</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.formState.errors.period && (
-                <p className="text-sm text-red-600">{form.formState.errors.period.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="alertThreshold">Alert Threshold (%)</Label>
-              <Input
-                id="alertThreshold"
-                type="number"
-                min="0"
-                max="100"
-                {...form.register("alertThreshold", { valueAsNumber: true })}
-                placeholder="80"
-              />
-              {form.formState.errors.alertThreshold && (
-                <p className="text-sm text-red-600">{form.formState.errors.alertThreshold.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Input
-                id="description"
-                {...form.register("description")}
-                placeholder="Additional details about this budget"
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Date</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          <div className="flex gap-2">
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Additional details about this budget..."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <Button 
               type="submit" 
-              disabled={isSubmitting || createBudgetMutation.isPending}
-              className="flex-1"
+              disabled={isSubmitting}
+              className="w-full"
             >
-              {isSubmitting || createBudgetMutation.isPending ? "Creating..." : "Create Budget"}
+              {isSubmitting 
+                ? (initialData?.id ? "Updating..." : "Creating...")
+                : (initialData?.id ? "Update Budget" : "Create Budget")
+              }
             </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => form.reset()}
-            >
-              Reset
-            </Button>
-          </div>
-        </form>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );
 }
-
-export default BudgetForm;
