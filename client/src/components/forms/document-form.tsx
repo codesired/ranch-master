@@ -1,69 +1,69 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { insertDocumentSchema, type InsertDocument } from "@shared/schema";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { insertDocumentSchema, type InsertDocument } from "@/../shared/schema";
 import { Upload, FileText } from "lucide-react";
 
 interface DocumentFormProps {
-  onClose: () => void;
-  document?: any;
+  onSuccess?: () => void;
 }
 
-const documentSchema = insertDocumentSchema;
-
-export default function DocumentForm({ onClose, document }: DocumentFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+export default function DocumentForm({ onSuccess }: DocumentFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const form = useForm<InsertDocument>({
-    resolver: zodResolver(documentSchema),
-    defaultValues: document || {
+    resolver: zodResolver(insertDocumentSchema.omit({ userId: true })),
+    defaultValues: {
       title: "",
-      category: "",
+      type: "",
       description: "",
-      fileUrl: "",
-      fileName: "",
+      filePath: "",
       fileSize: 0,
       mimeType: "",
-      relatedId: undefined,
-      relatedType: "",
+      tags: "",
     },
   });
 
-  const mutation = useMutation({
+  const createDocumentMutation = useMutation({
     mutationFn: async (data: InsertDocument) => {
-      const url = document ? `/api/documents/${document.id}` : "/api/documents";
-      const method = document ? "PATCH" : "POST";
-      return await apiRequest(url, {
-        method,
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
+      if (!response.ok) {
+        throw new Error("Failed to create document");
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       toast({
         title: "Success",
-        description: `Document ${document ? "updated" : "uploaded"} successfully`,
+        description: "Document added successfully",
       });
-      onClose();
+      form.reset();
+      setSelectedFile(null);
+      onSuccess?.();
     },
-    onError: (error: Error) => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: "Failed to add document",
         variant: "destructive",
       });
+      console.error("Document creation error:", error);
     },
   });
 
@@ -71,183 +71,146 @@ export default function DocumentForm({ onClose, document }: DocumentFormProps) {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      form.setValue("fileName", file.name);
+      form.setValue("filePath", file.name);
       form.setValue("fileSize", file.size);
       form.setValue("mimeType", file.type);
-      form.setValue("fileUrl", URL.createObjectURL(file));
+
+      // Auto-fill title if empty
+      if (!form.watch("title")) {
+        form.setValue("title", file.name.replace(/\.[^/.]+$/, ""));
+      }
     }
   };
 
   const onSubmit = async (data: InsertDocument) => {
     setIsSubmitting(true);
     try {
-      await mutation.mutateAsync(data);
+      // In a real implementation, you would upload the file to a storage service
+      // For now, we'll just store the metadata
+      await createDocumentMutation.mutateAsync(data);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const documentCategories = [
-    { value: "receipt", label: "Receipt" },
-    { value: "certificate", label: "Certificate" },
-    { value: "photo", label: "Photo" },
-    { value: "report", label: "Report" },
-    { value: "insurance", label: "Insurance" },
-    { value: "contract", label: "Contract" },
-    { value: "other", label: "Other" }
-  ];
-
-  const relatedTypes = [
-    { value: "animal", label: "Animal" },
-    { value: "equipment", label: "Equipment" },
-    { value: "transaction", label: "Transaction" },
-    { value: "general", label: "General" }
-  ];
-
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Document Title</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter document title" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="category"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {documentCategories.map((category) => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="relatedType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Related To (Optional)</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {relatedTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="relatedId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Related ID (Optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="Enter related ID"
-                    {...field}
-                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="description"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Description</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Enter document description..."
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="space-y-4">
-          <FormLabel>File Upload</FormLabel>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-            <input
-              type="file"
-              onChange={handleFileChange}
-              className="hidden"
-              id="file-upload"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="flex flex-col items-center space-y-2">
-                <Upload className="h-8 w-8 text-gray-400" />
+    <Card className="ranch-card">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Add Document
+        </CardTitle>
+        <CardDescription>
+          Upload and organize important ranch documents
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="file">Select File</Label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+              <input
+                id="file"
+                type="file"
+                onChange={handleFileChange}
+                className="hidden"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt"
+              />
+              <label htmlFor="file" className="cursor-pointer">
+                <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                 <p className="text-sm text-gray-600">
-                  {selectedFile ? selectedFile.name : "Click to upload a file"}
+                  {selectedFile ? selectedFile.name : "Click to upload or drag and drop"}
                 </p>
-                <p className="text-xs text-gray-500">
-                  PDF, DOC, DOCX, JPG, PNG, GIF, TXT up to 10MB
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, DOC, XLS, JPG, PNG up to 10MB
                 </p>
-              </div>
-            </label>
-          </div>
-          {selectedFile && (
-            <div className="flex items-center space-x-2 text-sm text-green-600">
-              <FileText className="h-4 w-4" />
-              <span>File selected: {selectedFile.name}</span>
+              </label>
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="flex justify-end space-x-2">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting} className="ranch-button-primary">
-            {isSubmitting ? "Uploading..." : document ? "Update" : "Upload"} Document
-          </Button>
-        </div>
-      </form>
-    </Form>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Document Title</Label>
+              <Input
+                id="title"
+                {...form.register("title")}
+                placeholder="Vaccination Records 2024"
+              />
+              {form.formState.errors.title && (
+                <p className="text-sm text-red-600">{form.formState.errors.title.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="type">Document Type</Label>
+              <Select
+                value={form.watch("type")}
+                onValueChange={(value) => form.setValue("type", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="health_record">Health Record</SelectItem>
+                  <SelectItem value="breeding_record">Breeding Record</SelectItem>
+                  <SelectItem value="financial_document">Financial Document</SelectItem>
+                  <SelectItem value="insurance">Insurance</SelectItem>
+                  <SelectItem value="permit">Permit/License</SelectItem>
+                  <SelectItem value="contract">Contract</SelectItem>
+                  <SelectItem value="invoice">Invoice</SelectItem>
+                  <SelectItem value="manual">Manual/Guide</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.formState.errors.type && (
+                <p className="text-sm text-red-600">{form.formState.errors.type.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                {...form.register("description")}
+                placeholder="Brief description of the document content"
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="tags">Tags (Optional)</Label>
+              <Input
+                id="tags"
+                {...form.register("tags")}
+                placeholder="cattle, vaccination, 2024 (comma-separated)"
+              />
+              <p className="text-xs text-gray-500">
+                Add tags to make documents easier to find
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button 
+              type="submit" 
+              disabled={isSubmitting || createDocumentMutation.isPending || !selectedFile}
+              className="flex-1"
+            >
+              {isSubmitting || createDocumentMutation.isPending ? "Adding..." : "Add Document"}
+            </Button>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                form.reset();
+                setSelectedFile(null);
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
