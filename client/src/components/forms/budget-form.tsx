@@ -14,7 +14,7 @@ interface BudgetFormProps {
   onSuccess?: () => void;
 }
 
-export default function BudgetForm({ onSuccess }: BudgetFormProps) {
+function BudgetForm({ onSuccess }: BudgetFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -199,3 +199,5 @@ export default function BudgetForm({ onSuccess }: BudgetFormProps) {
     </Card>
   );
 }
+
+export default BudgetForm;
