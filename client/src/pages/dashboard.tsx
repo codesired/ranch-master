@@ -26,7 +26,7 @@ import {
   ShoppingCart
 } from "lucide-react";
 import { MetricsCards } from "@/components/dashboard/metrics-cards";
-import { WeatherWidget } from "@/components/dashboard/weather-widget";
+import WeatherWidget from "@/components/dashboard/weather-widget";
 import { AlertsPanel } from "@/components/dashboard/alerts-panel";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { format } from "date-fns";
