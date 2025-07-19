@@ -31,7 +31,7 @@ const alerts = [
   },
 ];
 
-export default function AlertsPanel() {
+export function AlertsPanel() {
   return (
     <Card className="ranch-card">
       <CardHeader>
@@ -41,13 +41,20 @@ export default function AlertsPanel() {
         <div className="space-y-3">
           {alerts.map((alert, index) => {
             const Icon = alert.icon;
-            
+
             return (
-              <div key={index} className={`flex items-center space-x-3 p-3 ${alert.bgColor} rounded-lg`}>
+              <div
+                key={index}
+                className={`flex items-center space-x-3 p-3 ${alert.bgColor} rounded-lg`}
+              >
                 <Icon className={`h-5 w-5 ${alert.iconColor}`} />
                 <div className="flex-1">
-                  <p className={`text-sm font-medium ${alert.textColor}`}>{alert.title}</p>
-                  <p className={`text-xs ${alert.descColor}`}>{alert.description}</p>
+                  <p className={`text-sm font-medium ${alert.textColor}`}>
+                    {alert.title}
+                  </p>
+                  <p className={`text-xs ${alert.descColor}`}>
+                    {alert.description}
+                  </p>
                 </div>
               </div>
             );

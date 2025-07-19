@@ -12,7 +12,7 @@ interface MetricsCardsProps {
   };
 }
 
-export default function MetricsCards({ stats }: MetricsCardsProps) {
+export function MetricsCards({ stats }: MetricsCardsProps) {
   const cards = [
     {
       title: "Total Livestock",
@@ -33,7 +33,9 @@ export default function MetricsCards({ stats }: MetricsCardsProps) {
     {
       title: "Feed Inventory",
       value: "15.2 tons",
-      change: stats?.lowStockItems ? `${stats.lowStockItems} low stock items` : "Stock levels normal",
+      change: stats?.lowStockItems
+        ? `${stats.lowStockItems} low stock items`
+        : "Stock levels normal",
       icon: Package,
       iconBg: "bg-orange-100",
       iconColor: "text-earth-brown",
@@ -54,21 +56,25 @@ export default function MetricsCards({ stats }: MetricsCardsProps) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {cards.map((card, index) => {
         const Icon = card.icon;
-        
+
         return (
           <Card key={index} className="ranch-card">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 mb-1">{card.title}</p>
-                  <p className="text-2xl font-bold text-dark-green">{card.value}</p>
+                  <p className="text-2xl font-bold text-dark-green">
+                    {card.value}
+                  </p>
                 </div>
                 <div className={`${card.iconBg} p-3 rounded-full`}>
                   <Icon className={`h-6 w-6 ${card.iconColor}`} />
                 </div>
               </div>
               <div className="mt-4">
-                <span className={`text-sm ${card.changeColor || "text-green-600"}`}>
+                <span
+                  className={`text-sm ${card.changeColor || "text-green-600"}`}
+                >
                   {card.change}
                 </span>
               </div>

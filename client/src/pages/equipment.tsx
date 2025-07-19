@@ -6,12 +6,31 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/shared/loading-spinner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Plus, Wrench, AlertTriangle, Truck, Calendar } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import EquipmentForm from "@/components/forms/equipment-form";
+import { EquipmentForm } from "@/components/forms/equipment-form";
 
 export default function Equipment() {
   const { toast } = useToast();
@@ -57,21 +76,31 @@ export default function Equipment() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'operational': return 'default';
-      case 'maintenance': return 'secondary';
-      case 'repair': return 'destructive';
-      case 'retired': return 'outline';
-      default: return 'default';
+      case "operational":
+        return "default";
+      case "maintenance":
+        return "secondary";
+      case "repair":
+        return "destructive";
+      case "retired":
+        return "outline";
+      default:
+        return "default";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'operational': return '✓';
-      case 'maintenance': return '⚠';
-      case 'repair': return '⚠';
-      case 'retired': return '✗';
-      default: return '?';
+      case "operational":
+        return "✓";
+      case "maintenance":
+        return "⚠";
+      case "repair":
+        return "⚠";
+      case "retired":
+        return "✗";
+      default:
+        return "?";
     }
   };
 
@@ -80,8 +109,12 @@ export default function Equipment() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-dark-green mb-2">Equipment Management</h1>
-          <p className="text-gray-600">Track equipment status, schedule maintenance, and monitor costs.</p>
+          <h1 className="text-3xl font-bold text-dark-green mb-2">
+            Equipment Management
+          </h1>
+          <p className="text-gray-600">
+            Track equipment status, schedule maintenance, and monitor costs.
+          </p>
         </div>
         <div className="flex items-center space-x-4 mt-4 md:mt-0">
           <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
@@ -112,7 +145,9 @@ export default function Equipment() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="ranch-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Equipment</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total Equipment
+            </CardTitle>
             <Truck className="h-4 w-4 text-farm-green" />
           </CardHeader>
           <CardContent>
@@ -130,7 +165,7 @@ export default function Equipment() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {equipment?.filter(e => e.status === 'operational').length || 0}
+              {equipment?.filter((e) => e.status === "operational").length || 0}
             </div>
             <p className="text-xs text-green-600">Ready for use</p>
           </CardContent>
@@ -143,7 +178,7 @@ export default function Equipment() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">
-              {equipment?.filter(e => e.status === 'maintenance').length || 0}
+              {equipment?.filter((e) => e.status === "maintenance").length || 0}
             </div>
             <p className="text-xs text-yellow-600">Scheduled service</p>
           </CardContent>
@@ -156,7 +191,7 @@ export default function Equipment() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {equipment?.filter(e => e.status === 'repair').length || 0}
+              {equipment?.filter((e) => e.status === "repair").length || 0}
             </div>
             <p className="text-xs text-red-600">Requires attention</p>
           </CardContent>
@@ -164,42 +199,61 @@ export default function Equipment() {
       </div>
 
       {/* Maintenance Alerts */}
-      {equipment && equipment.filter(e => e.status === 'maintenance' || e.status === 'repair').length > 0 && (
-        <Card className="ranch-card border-yellow-200">
-          <CardHeader>
-            <CardTitle className="text-yellow-600 flex items-center">
-              <Calendar className="h-5 w-5 mr-2" />
-              Maintenance & Repair Alerts
-            </CardTitle>
-            <CardDescription>
-              Equipment that needs attention:
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {equipment.filter(e => e.status === 'maintenance' || e.status === 'repair').map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-yellow-800">{item.name}</p>
-                    <p className="text-sm text-yellow-600">
-                      {item.model} | Location: {item.location || 'Not specified'}
-                    </p>
-                  </div>
-                  <Badge variant={item.status === 'repair' ? 'destructive' : 'secondary'}>
-                    {item.status === 'repair' ? 'Repair Needed' : 'Maintenance Due'}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {equipment &&
+        equipment.filter(
+          (e) => e.status === "maintenance" || e.status === "repair",
+        ).length > 0 && (
+          <Card className="ranch-card border-yellow-200">
+            <CardHeader>
+              <CardTitle className="text-yellow-600 flex items-center">
+                <Calendar className="h-5 w-5 mr-2" />
+                Maintenance & Repair Alerts
+              </CardTitle>
+              <CardDescription>Equipment that needs attention:</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {equipment
+                  .filter(
+                    (e) => e.status === "maintenance" || e.status === "repair",
+                  )
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium text-yellow-800">
+                          {item.name}
+                        </p>
+                        <p className="text-sm text-yellow-600">
+                          {item.model} | Location:{" "}
+                          {item.location || "Not specified"}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={
+                          item.status === "repair" ? "destructive" : "secondary"
+                        }
+                      >
+                        {item.status === "repair"
+                          ? "Repair Needed"
+                          : "Maintenance Due"}
+                      </Badge>
+                    </div>
+                  ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       {/* Equipment Table */}
       <Card className="ranch-card">
         <CardHeader>
           <CardTitle className="text-dark-green">Equipment Inventory</CardTitle>
-          <CardDescription>All equipment and their current status</CardDescription>
+          <CardDescription>
+            All equipment and their current status
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {equipment && equipment.length > 0 ? (
@@ -224,18 +278,21 @@ export default function Equipment() {
                       <TableCell>
                         <Badge variant="outline">{item.type}</Badge>
                       </TableCell>
-                      <TableCell>{item.model || 'N/A'}</TableCell>
+                      <TableCell>{item.model || "N/A"}</TableCell>
                       <TableCell>
                         <Badge variant={getStatusColor(item.status)}>
                           {getStatusIcon(item.status)} {item.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{item.location || 'Not specified'}</TableCell>
+                      <TableCell>{item.location || "Not specified"}</TableCell>
                       <TableCell>
-                        {item.purchaseDate ? new Date(item.purchaseDate).toLocaleDateString() : 'N/A'}
+                        {item.purchaseDate
+                          ? new Date(item.purchaseDate).toLocaleDateString()
+                          : "N/A"}
                       </TableCell>
                       <TableCell>
-                        ${parseFloat(item.purchasePrice || '0').toLocaleString()}
+                        $
+                        {parseFloat(item.purchasePrice || "0").toLocaleString()}
                       </TableCell>
                       <TableCell>
                         <div className="flex space-x-2">

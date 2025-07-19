@@ -5,16 +5,50 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useEffect } from "react";
 import LoadingSpinner from "@/components/shared/loading-spinner";
-import InventoryForm from "@/components/forms/inventory-form";
+import { InventoryForm } from "@/components/forms/inventory-form";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Package, AlertTriangle, TrendingDown, Edit, Trash2, Search, Filter } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Plus,
+  Package,
+  AlertTriangle,
+  TrendingDown,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+} from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiRequest } from "@/lib/queryClient";
 import { format } from "date-fns";
 
@@ -119,15 +153,21 @@ export default function Inventory() {
     setIsAddDialogOpen(false);
   };
 
-  const filteredInventory = inventory?.filter((item: any) => {
-    const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === "all" || item.category === filterCategory;
-    const matchesLowStock = !filterLowStock || item.quantity <= item.lowStockThreshold;
-    return matchesSearch && matchesCategory && matchesLowStock;
-  }) || [];
+  const filteredInventory =
+    inventory?.filter((item: any) => {
+      const matchesSearch =
+        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        filterCategory === "all" || item.category === filterCategory;
+      const matchesLowStock =
+        !filterLowStock || item.quantity <= item.lowStockThreshold;
+      return matchesSearch && matchesCategory && matchesLowStock;
+    }) || [];
 
-  const allCategories = [...new Set(inventory?.map((item: any) => item.category) || [])];
+  const allCategories = [
+    ...new Set(inventory?.map((item: any) => item.category) || []),
+  ];
 
   if (isLoading || inventoryLoading || lowStockLoading) {
     return <LoadingSpinner />;
@@ -150,8 +190,12 @@ export default function Inventory() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-dark-green mb-2">Inventory Management</h1>
-          <p className="text-gray-600">Track feed, supplies, and equipment inventory levels.</p>
+          <h1 className="text-3xl font-bold text-dark-green mb-2">
+            Inventory Management
+          </h1>
+          <p className="text-gray-600">
+            Track feed, supplies, and equipment inventory levels.
+          </p>
         </div>
         <div className="flex items-center space-x-4 mt-4 md:mt-0">
           <select className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white">
@@ -171,13 +215,12 @@ export default function Inventory() {
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>
-                  {selectedItem ? "Edit Inventory Item" : "Add New Inventory Item"}
+                  {selectedItem
+                    ? "Edit Inventory Item"
+                    : "Add New Inventory Item"}
                 </DialogTitle>
               </DialogHeader>
-              <InventoryForm
-                onClose={handleClose}
-                item={selectedItem}
-              />
+              <InventoryForm onClose={handleClose} item={selectedItem} />
             </DialogContent>
           </Dialog>
         </div>
@@ -200,7 +243,9 @@ export default function Inventory() {
 
         <Card className="ranch-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Low Stock Alerts
+            </CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -218,7 +263,16 @@ export default function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-harvest-orange">
-              ${inventory?.reduce((sum, item) => sum + (parseFloat(item.cost || '0') * parseFloat(item.quantity || '0')), 0).toLocaleString() || '0'}
+              $
+              {inventory
+                ?.reduce(
+                  (sum, item) =>
+                    sum +
+                    parseFloat(item.cost || "0") *
+                      parseFloat(item.quantity || "0"),
+                  0,
+                )
+                .toLocaleString() || "0"}
             </div>
             <p className="text-xs text-gray-600">Current inventory value</p>
           </CardContent>
@@ -231,7 +285,8 @@ export default function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-earth-brown">
-              {[...new Set(inventory?.map(item => item.category))].length || 0}
+              {[...new Set(inventory?.map((item) => item.category))].length ||
+                0}
             </div>
             <p className="text-xs text-gray-600">Different categories</p>
           </CardContent>
@@ -253,12 +308,16 @@ export default function Inventory() {
           <CardContent>
             <div className="space-y-2">
               {lowStockItems.map((item) => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-3 bg-red-50 rounded-lg"
+                >
                   <div>
                     <p className="font-medium text-red-800">{item.name}</p>
                     <p className="text-sm text-red-600">
-                      Current: {parseFloat(item.quantity)} {item.unit} | 
-                      Minimum: {parseFloat(item.minThreshold || '0')} {item.unit}
+                      Current: {parseFloat(item.quantity)} {item.unit} |
+                      Minimum: {parseFloat(item.minThreshold || "0")}{" "}
+                      {item.unit}
                     </p>
                   </div>
                   <Badge variant="destructive">Critical</Badge>
@@ -294,41 +353,65 @@ export default function Inventory() {
                 <TableBody>
                   {inventory.map((item) => {
                     const current = parseFloat(item.quantity);
-                    const minimum = parseFloat(item.minThreshold || '0');
+                    const minimum = parseFloat(item.minThreshold || "0");
                     const status = getStockStatus(current, minimum);
                     const level = getStockLevel(current, minimum);
-                    
+
                     return (
                       <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {item.name}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="secondary">{item.category}</Badge>
                         </TableCell>
-                        <TableCell>{current} {item.unit}</TableCell>
-                        <TableCell>{minimum} {item.unit}</TableCell>
+                        <TableCell>
+                          {current} {item.unit}
+                        </TableCell>
+                        <TableCell>
+                          {minimum} {item.unit}
+                        </TableCell>
                         <TableCell className="w-32">
                           <div className="space-y-1">
-                            <Progress 
-                              value={level} 
+                            <Progress
+                              value={level}
                               className={`h-2 ${
-                                status === 'critical' ? 'bg-red-100' : 
-                                status === 'low' ? 'bg-yellow-100' : 'bg-green-100'
+                                status === "critical"
+                                  ? "bg-red-100"
+                                  : status === "low"
+                                    ? "bg-yellow-100"
+                                    : "bg-green-100"
                               }`}
                             />
-                            <span className="text-xs text-gray-600">{level.toFixed(0)}%</span>
+                            <span className="text-xs text-gray-600">
+                              {level.toFixed(0)}%
+                            </span>
                           </div>
                         </TableCell>
-                        <TableCell>{item.location || 'Not specified'}</TableCell>
                         <TableCell>
-                          ${(parseFloat(item.cost || '0') * current).toLocaleString()}
+                          {item.location || "Not specified"}
                         </TableCell>
                         <TableCell>
-                          <Badge 
-                            variant={status === 'critical' ? 'destructive' : 
-                                   status === 'low' ? 'secondary' : 'default'}
+                          $
+                          {(
+                            parseFloat(item.cost || "0") * current
+                          ).toLocaleString()}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              status === "critical"
+                                ? "destructive"
+                                : status === "low"
+                                  ? "secondary"
+                                  : "default"
+                            }
                           >
-                            {status === 'critical' ? 'Critical' : 
-                             status === 'low' ? 'Low' : 'Good'}
+                            {status === "critical"
+                              ? "Critical"
+                              : status === "low"
+                                ? "Low"
+                                : "Good"}
                           </Badge>
                         </TableCell>
                       </TableRow>

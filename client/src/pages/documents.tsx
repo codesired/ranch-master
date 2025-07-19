@@ -3,11 +3,24 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { FileText, Download, Eye, Plus, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import DocumentForm from "@/components/forms/document-form";
+import { DocumentForm } from "@/components/forms/document-form";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Documents() {
@@ -17,15 +30,17 @@ export default function Documents() {
 
   const { data: documents, isLoading } = useQuery({
     queryKey: ["/api/documents"],
-    queryFn: () => fetch("/api/documents").then(res => res.json()),
+    queryFn: () => fetch("/api/documents").then((res) => res.json()),
     enabled: !!user,
   });
 
-  const filteredDocuments = documents?.filter((doc: any) =>
-    doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doc.tags?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredDocuments =
+    documents?.filter(
+      (doc: any) =>
+        doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.tags?.toLowerCase().includes(searchTerm.toLowerCase()),
+    ) || [];
 
   const getTypeColor = (type: string) => {
     const colors: Record<string, string> = {
@@ -54,8 +69,12 @@ export default function Documents() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-dark-green">Document Management</h1>
-          <p className="text-gray-600">Organize and access important ranch documents</p>
+          <h1 className="text-3xl font-bold text-dark-green">
+            Document Management
+          </h1>
+          <p className="text-gray-600">
+            Organize and access important ranch documents
+          </p>
         </div>
         <Dialog open={showForm} onOpenChange={setShowForm}>
           <DialogTrigger asChild>
@@ -114,7 +133,9 @@ export default function Documents() {
                         <div>
                           <p className="font-medium">{document.title}</p>
                           {document.description && (
-                            <p className="text-sm text-gray-500">{document.description}</p>
+                            <p className="text-sm text-gray-500">
+                              {document.description}
+                            </p>
                           )}
                         </div>
                       </TableCell>
@@ -130,11 +151,17 @@ export default function Documents() {
                       <TableCell>
                         {document.tags && (
                           <div className="flex flex-wrap gap-1">
-                            {document.tags.split(",").map((tag: string, index: number) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {tag.trim()}
-                              </Badge>
-                            ))}
+                            {document.tags
+                              .split(",")
+                              .map((tag: string, index: number) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {tag.trim()}
+                                </Badge>
+                              ))}
                           </div>
                         )}
                       </TableCell>
@@ -155,7 +182,9 @@ export default function Documents() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {searchTerm ? "No documents match your search." : "No documents found. Add your first document to get started."}
+              {searchTerm
+                ? "No documents match your search."
+                : "No documents found. Add your first document to get started."}
             </div>
           )}
         </CardContent>

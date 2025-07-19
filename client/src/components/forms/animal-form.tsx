@@ -25,7 +25,7 @@ interface AnimalFormProps {
 
 const animalSchema = insertAnimalSchema;
 
-export default function AnimalForm({ onClose, animal }: AnimalFormProps) {
+export function AnimalForm({ onClose, animal }: AnimalFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();

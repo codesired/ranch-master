@@ -5,7 +5,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import LoadingSpinner from "@/components/shared/loading-spinner";
 
-export default function FinancialSummary() {
+export function FinancialSummary() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
@@ -60,18 +60,24 @@ export default function FinancialSummary() {
         </div>
 
         <div className="space-y-4">
-          {(financialSummary?.expensesByCategory || expenseCategories).map((category, index) => (
-            <div key={index} className="flex justify-between items-center">
-              <span className="text-sm text-gray-600">{category.category || category.name}</span>
-              <span className="text-sm font-medium text-dark-green">
-                ${(category.amount || 0).toLocaleString()}
-              </span>
-            </div>
-          ))}
-          
+          {(financialSummary?.expensesByCategory || expenseCategories).map(
+            (category, index) => (
+              <div key={index} className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">
+                  {category.category || category.name}
+                </span>
+                <span className="text-sm font-medium text-dark-green">
+                  ${(category.amount || 0).toLocaleString()}
+                </span>
+              </div>
+            ),
+          )}
+
           <div className="border-t pt-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-dark-green">Net Profit</span>
+              <span className="text-sm font-medium text-dark-green">
+                Net Profit
+              </span>
               <span className="text-sm font-bold text-farm-green">
                 ${financialSummary?.netProfit?.toLocaleString() || "0"}
               </span>

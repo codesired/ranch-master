@@ -6,17 +6,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { insertDocumentSchema, type InsertDocument } from "@/../shared/schema";
+import {
+  insertDocumentSchema,
+  type InsertDocument,
+} from "@/../../shared/schema";
 import { Upload, FileText } from "lucide-react";
 
 interface DocumentFormProps {
   onSuccess?: () => void;
 }
 
-export default function DocumentForm({ onSuccess }: DocumentFormProps) {
+export function DocumentForm({ onSuccess }: DocumentFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,7 +134,9 @@ export default function DocumentForm({ onSuccess }: DocumentFormProps) {
               <label htmlFor="file" className="cursor-pointer">
                 <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                 <p className="text-sm text-gray-600">
-                  {selectedFile ? selectedFile.name : "Click to upload or drag and drop"}
+                  {selectedFile
+                    ? selectedFile.name
+                    : "Click to upload or drag and drop"}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   PDF, DOC, XLS, JPG, PNG up to 10MB
@@ -137,7 +154,9 @@ export default function DocumentForm({ onSuccess }: DocumentFormProps) {
                 placeholder="Vaccination Records 2024"
               />
               {form.formState.errors.title && (
-                <p className="text-sm text-red-600">{form.formState.errors.title.message}</p>
+                <p className="text-sm text-red-600">
+                  {form.formState.errors.title.message}
+                </p>
               )}
             </div>
 
@@ -152,8 +171,12 @@ export default function DocumentForm({ onSuccess }: DocumentFormProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="health_record">Health Record</SelectItem>
-                  <SelectItem value="breeding_record">Breeding Record</SelectItem>
-                  <SelectItem value="financial_document">Financial Document</SelectItem>
+                  <SelectItem value="breeding_record">
+                    Breeding Record
+                  </SelectItem>
+                  <SelectItem value="financial_document">
+                    Financial Document
+                  </SelectItem>
                   <SelectItem value="insurance">Insurance</SelectItem>
                   <SelectItem value="permit">Permit/License</SelectItem>
                   <SelectItem value="contract">Contract</SelectItem>
@@ -163,7 +186,9 @@ export default function DocumentForm({ onSuccess }: DocumentFormProps) {
                 </SelectContent>
               </Select>
               {form.formState.errors.type && (
-                <p className="text-sm text-red-600">{form.formState.errors.type.message}</p>
+                <p className="text-sm text-red-600">
+                  {form.formState.errors.type.message}
+                </p>
               )}
             </div>
 
@@ -191,16 +216,22 @@ export default function DocumentForm({ onSuccess }: DocumentFormProps) {
           </div>
 
           <div className="flex gap-2">
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || createDocumentMutation.isPending || !selectedFile}
+            <Button
+              type="submit"
+              disabled={
+                isSubmitting ||
+                createDocumentMutation.isPending ||
+                !selectedFile
+              }
               className="flex-1"
             >
-              {isSubmitting || createDocumentMutation.isPending ? "Adding..." : "Add Document"}
+              {isSubmitting || createDocumentMutation.isPending
+                ? "Adding..."
+                : "Add Document"}
             </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => {
                 form.reset();
                 setSelectedFile(null);

@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import LoadingSpinner from "@/components/shared/loading-spinner";
 import EmptyState from "@/components/shared/empty-state";
 
-export default function EquipmentStatus() {
+export function EquipmentStatus() {
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
@@ -36,21 +36,31 @@ export default function EquipmentStatus() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'operational': return 'ranch-status-healthy';
-      case 'maintenance': return 'ranch-status-warning';
-      case 'repair': return 'ranch-status-danger';
-      case 'retired': return 'ranch-status-info';
-      default: return 'ranch-status-info';
+      case "operational":
+        return "ranch-status-healthy";
+      case "maintenance":
+        return "ranch-status-warning";
+      case "repair":
+        return "ranch-status-danger";
+      case "retired":
+        return "ranch-status-info";
+      default:
+        return "ranch-status-info";
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'operational': return 'Operational';
-      case 'maintenance': return 'Maintenance';
-      case 'repair': return 'Repair Needed';
-      case 'retired': return 'Retired';
-      default: return 'Unknown';
+      case "operational":
+        return "Operational";
+      case "maintenance":
+        return "Maintenance";
+      case "repair":
+        return "Repair Needed";
+      case "retired":
+        return "Retired";
+      default:
+        return "Unknown";
     }
   };
 
@@ -63,7 +73,10 @@ export default function EquipmentStatus() {
         {equipment && equipment.length > 0 ? (
           <div className="space-y-4">
             {equipment.slice(0, 4).map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+              >
                 <div className="flex items-center space-x-3">
                   <Avatar className="h-12 w-12">
                     <AvatarFallback className="bg-earth-brown text-white">
@@ -71,9 +84,11 @@ export default function EquipmentStatus() {
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-sm font-medium text-dark-green">{item.name}</p>
+                    <p className="text-sm font-medium text-dark-green">
+                      {item.name}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      {item.type} • {item.model || 'Unknown Model'}
+                      {item.type} • {item.model || "Unknown Model"}
                     </p>
                   </div>
                 </div>

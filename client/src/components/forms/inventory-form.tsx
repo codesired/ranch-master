@@ -5,13 +5,30 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { insertInventorySchema, type InsertInventory } from "@shared/schema";
 import { CalendarIcon } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
@@ -22,7 +39,7 @@ interface InventoryFormProps {
 
 const inventorySchema = insertInventorySchema;
 
-export default function InventoryForm({ onClose, item }: InventoryFormProps) {
+export function InventoryForm({ onClose, item }: InventoryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -89,11 +106,19 @@ export default function InventoryForm({ onClose, item }: InventoryFormProps) {
     "Bedding & Supplies",
     "Maintenance & Repair",
     "Safety Equipment",
-    "Other"
+    "Other",
   ];
 
   const units = [
-    "lbs", "kg", "tons", "bags", "gallons", "liters", "units", "boxes", "pallets"
+    "lbs",
+    "kg",
+    "tons",
+    "bags",
+    "gallons",
+    "liters",
+    "units",
+    "boxes",
+    "pallets",
   ];
 
   return (
@@ -120,7 +145,10 @@ export default function InventoryForm({ onClose, item }: InventoryFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -165,7 +193,10 @@ export default function InventoryForm({ onClose, item }: InventoryFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Unit</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select unit" />
@@ -280,7 +311,9 @@ export default function InventoryForm({ onClose, item }: InventoryFormProps) {
                     <Calendar
                       mode="single"
                       selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                      onSelect={(date) =>
+                        field.onChange(date?.toISOString().split("T")[0])
+                      }
                       disabled={(date) => date < new Date()}
                       initialFocus
                     />
@@ -299,10 +332,7 @@ export default function InventoryForm({ onClose, item }: InventoryFormProps) {
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Enter item description..."
-                  {...field}
-                />
+                <Textarea placeholder="Enter item description..." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -313,7 +343,11 @@ export default function InventoryForm({ onClose, item }: InventoryFormProps) {
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="ranch-button-primary">
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="ranch-button-primary"
+          >
             {isSubmitting ? "Saving..." : item ? "Update" : "Create"} Item
           </Button>
         </div>

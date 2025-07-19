@@ -32,7 +32,7 @@ const activities = [
   },
 ];
 
-export default function ActivityFeed() {
+export function ActivityFeed() {
   return (
     <Card className="ranch-card">
       <CardHeader>
@@ -42,7 +42,7 @@ export default function ActivityFeed() {
         <div className="space-y-4">
           {activities.map((activity, index) => {
             const Icon = activity.icon;
-            
+
             return (
               <div key={index} className="flex items-start space-x-3">
                 <div className={`${activity.iconBg} p-2 rounded-full`}>

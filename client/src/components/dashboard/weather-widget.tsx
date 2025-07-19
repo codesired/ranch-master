@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sun, CloudSun, CloudRain, Wind, Thermometer } from "lucide-react";
@@ -14,26 +13,27 @@ const mockWeatherData = [
 
 function getWeatherIcon(condition: string) {
   switch (condition?.toLowerCase()) {
-    case 'clear':
+    case "clear":
       return <Sun className="h-8 w-8 text-yellow-500" />;
-    case 'clouds':
+    case "clouds":
       return <CloudSun className="h-8 w-8 text-gray-500" />;
-    case 'rain':
+    case "rain":
       return <CloudRain className="h-8 w-8 text-blue-500" />;
     default:
       return <Sun className="h-8 w-8 text-yellow-500" />;
   }
 }
 
-export default function WeatherWidget() {
+export function WeatherWidget() {
   const { user } = useAuth();
-  const [location, setLocation] = useState({ lat: 40.7128, lon: -74.0060 });
+  const [location, setLocation] = useState({ lat: 40.7128, lon: -74.006 });
 
   const { data: weather, isLoading } = useQuery({
     queryKey: ["/api/weather", location.lat, location.lon],
-    queryFn: () => 
-      fetch(`/api/weather?lat=${location.lat}&lon=${location.lon}`)
-        .then(res => res.json()),
+    queryFn: () =>
+      fetch(`/api/weather?lat=${location.lat}&lon=${location.lon}`).then(
+        (res) => res.json(),
+      ),
     enabled: !!user,
     refetchInterval: 1000 * 60 * 10, // Refetch every 10 minutes
   });
@@ -51,7 +51,7 @@ export default function WeatherWidget() {
         () => {
           // Use default location (New York) if geolocation fails
           console.log("Using default location");
-        }
+        },
       );
     }
   }, []);
@@ -80,7 +80,7 @@ export default function WeatherWidget() {
           <div className="grid grid-cols-4 gap-4 text-center">
             {mockWeatherData.map((day, index) => {
               const Icon = day.icon;
-              
+
               return (
                 <div key={index}>
                   <p className="text-xs text-gray-600 mb-2">{day.day}</p>

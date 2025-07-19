@@ -5,13 +5,33 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { insertTransactionSchema, type InsertTransaction } from "@shared/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  insertTransactionSchema,
+  type InsertTransaction,
+} from "@shared/schema";
 import { Calendar, CalendarIcon } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 
@@ -22,7 +42,10 @@ interface TransactionFormProps {
 
 const transactionSchema = insertTransactionSchema;
 
-export default function TransactionForm({ onClose, transaction }: TransactionFormProps) {
+export function TransactionForm({
+  onClose,
+  transaction,
+}: TransactionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -34,13 +57,15 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
       category: "",
       amount: 0,
       description: "",
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split("T")[0],
     },
   });
 
   const mutation = useMutation({
     mutationFn: async (data: InsertTransaction) => {
-      const url = transaction ? `/api/transactions/${transaction.id}` : "/api/transactions";
+      const url = transaction
+        ? `/api/transactions/${transaction.id}`
+        : "/api/transactions";
       const method = transaction ? "PATCH" : "POST";
       return await apiRequest(url, {
         method,
@@ -84,7 +109,7 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
     "Equipment Rental",
     "Consulting",
     "Subsidies",
-    "Other Income"
+    "Other Income",
   ];
 
   const expenseCategories = [
@@ -100,10 +125,11 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
     "Transportation",
     "Marketing & Sales",
     "Property Taxes",
-    "Other Expenses"
+    "Other Expenses",
   ];
 
-  const categories = form.watch("type") === "income" ? incomeCategories : expenseCategories;
+  const categories =
+    form.watch("type") === "income" ? incomeCategories : expenseCategories;
 
   return (
     <Form {...form}>
@@ -115,7 +141,10 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select transaction type" />
@@ -137,7 +166,10 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Category</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
@@ -204,7 +236,9 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
                     <CalendarComponent
                       mode="single"
                       selected={field.value ? new Date(field.value) : undefined}
-                      onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                      onSelect={(date) =>
+                        field.onChange(date?.toISOString().split("T")[0])
+                      }
                       disabled={(date) =>
                         date > new Date() || date < new Date("1900-01-01")
                       }
@@ -239,8 +273,13 @@ export default function TransactionForm({ onClose, transaction }: TransactionFor
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="ranch-button-primary">
-            {isSubmitting ? "Saving..." : transaction ? "Update" : "Create"} Transaction
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="ranch-button-primary"
+          >
+            {isSubmitting ? "Saving..." : transaction ? "Update" : "Create"}{" "}
+            Transaction
           </Button>
         </div>
       </form>

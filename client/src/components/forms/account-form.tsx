@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,9 +6,22 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { insertAccountSchema, type InsertAccount } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 interface AccountFormProps {
@@ -17,7 +29,7 @@ interface AccountFormProps {
   account?: any;
 }
 
-export default function AccountForm({ onClose, account }: AccountFormProps) {
+export function AccountForm({ onClose, account }: AccountFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,11 +92,18 @@ export default function AccountForm({ onClose, account }: AccountFormProps) {
   ];
 
   const subTypes = {
-    asset: ["cash", "accounts_receivable", "inventory", "equipment", "land", "buildings"],
+    asset: [
+      "cash",
+      "accounts_receivable",
+      "inventory",
+      "equipment",
+      "land",
+      "buildings",
+    ],
     liability: ["accounts_payable", "loans_payable", "accrued_expenses"],
     equity: ["owner_equity", "retained_earnings"],
     revenue: ["sales_revenue", "service_revenue", "other_income"],
-    expense: ["operating_expenses", "cost_of_goods_sold", "depreciation"]
+    expense: ["operating_expenses", "cost_of_goods_sold", "depreciation"],
   };
 
   const selectedType = form.watch("type");
@@ -127,7 +146,10 @@ export default function AccountForm({ onClose, account }: AccountFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Account Type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select account type" />
@@ -152,7 +174,10 @@ export default function AccountForm({ onClose, account }: AccountFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Sub Type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Select sub type" />
@@ -161,7 +186,9 @@ export default function AccountForm({ onClose, account }: AccountFormProps) {
                   <SelectContent>
                     {(subTypes[selectedType] || []).map((subType) => (
                       <SelectItem key={subType} value={subType}>
-                        {subType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {subType
+                          .replace(/_/g, " ")
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -183,7 +210,9 @@ export default function AccountForm({ onClose, account }: AccountFormProps) {
                     step="0.01"
                     placeholder="0.00"
                     {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    onChange={(e) =>
+                      field.onChange(parseFloat(e.target.value) || 0)
+                    }
                   />
                 </FormControl>
                 <FormMessage />
@@ -196,8 +225,16 @@ export default function AccountForm({ onClose, account }: AccountFormProps) {
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="ranch-button-primary">
-            {isSubmitting ? "Saving..." : account ? "Update Account" : "Create Account"}
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="ranch-button-primary"
+          >
+            {isSubmitting
+              ? "Saving..."
+              : account
+                ? "Update Account"
+                : "Create Account"}
           </Button>
         </div>
       </form>

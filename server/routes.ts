@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { seedDatabase } from "./seed-data";
-import { 
+import {
   insertAnimalSchema,
   insertHealthRecordSchema,
   insertBreedingRecordSchema,
@@ -14,7 +14,7 @@ import {
   insertDocumentSchema,
   insertBudgetSchema,
   insertAccountSchema,
-  insertJournalEntrySchema
+  insertJournalEntrySchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -35,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard routes
-  app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
+  app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const stats = await storage.getDashboardStats(userId);
@@ -47,7 +47,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Animal routes
-  app.get('/api/animals', isAuthenticated, async (req: any, res) => {
+  app.get("/api/animals", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const animals = await storage.getAnimals(userId);
@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/animals/:id', isAuthenticated, async (req: any, res) => {
+  app.get("/api/animals/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -73,8 +73,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/animals', isAuthenticated, async (req: any, res) => {
+  app.post("/api/animals", isAuthenticated, async (req: any, res) => {
     try {
+      console.log("Hello Word");
       const userId = req.user.claims.sub;
       const animalData = insertAnimalSchema.parse({ ...req.body, userId });
       const animal = await storage.createAnimal(animalData);
@@ -85,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/animals/:id', isAuthenticated, async (req: any, res) => {
+  app.put("/api/animals/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -98,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/animals/:id', isAuthenticated, async (req: any, res) => {
+  app.delete("/api/animals/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -111,22 +112,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Health records routes
-  app.get('/api/animals/:animalId/health-records', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const animalId = parseInt(req.params.animalId);
-      const records = await storage.getHealthRecords(animalId, userId);
-      res.json(records);
-    } catch (error) {
-      console.error("Error fetching health records:", error);
-      res.status(500).json({ message: "Failed to fetch health records" });
-    }
-  });
+  app.get(
+    "/api/animals/:animalId/health-records",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const animalId = parseInt(req.params.animalId);
+        const records = await storage.getHealthRecords(animalId, userId);
+        res.json(records);
+      } catch (error) {
+        console.error("Error fetching health records:", error);
+        res.status(500).json({ message: "Failed to fetch health records" });
+      }
+    },
+  );
 
-  app.post('/api/health-records', isAuthenticated, async (req: any, res) => {
+  app.post("/api/health-records", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const recordData = insertHealthRecordSchema.parse({ ...req.body, userId });
+      const recordData = insertHealthRecordSchema.parse({
+        ...req.body,
+        userId,
+      });
       const record = await storage.createHealthRecord(recordData);
       res.status(201).json(record);
     } catch (error) {
@@ -136,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Breeding records routes
-  app.get('/api/breeding-records', isAuthenticated, async (req: any, res) => {
+  app.get("/api/breeding-records", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const records = await storage.getBreedingRecords(userId);
@@ -147,10 +155,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/breeding-records', isAuthenticated, async (req: any, res) => {
+  app.post("/api/breeding-records", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const recordData = insertBreedingRecordSchema.parse({ ...req.body, userId });
+      const recordData = insertBreedingRecordSchema.parse({
+        ...req.body,
+        userId,
+      });
       const record = await storage.createBreedingRecord(recordData);
       res.status(201).json(record);
     } catch (error) {
@@ -160,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Transaction routes
-  app.get('/api/transactions', isAuthenticated, async (req: any, res) => {
+  app.get("/api/transactions", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const transactions = await storage.getTransactions(userId);
@@ -171,10 +182,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/transactions', isAuthenticated, async (req: any, res) => {
+  app.post("/api/transactions", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const transactionData = insertTransactionSchema.parse({ ...req.body, userId });
+      const transactionData = insertTransactionSchema.parse({
+        ...req.body,
+        userId,
+      });
       const transaction = await storage.createTransaction(transactionData);
       res.status(201).json(transaction);
     } catch (error) {
@@ -183,14 +197,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/financial-summary', isAuthenticated, async (req: any, res) => {
+  app.get("/api/financial-summary", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { startDate, endDate } = req.query;
-      
+
       const start = startDate ? new Date(startDate as string) : undefined;
       const end = endDate ? new Date(endDate as string) : undefined;
-      
+
       const summary = await storage.getFinancialSummary(userId, start, end);
       res.json(summary);
     } catch (error) {
@@ -200,7 +214,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Inventory routes
-  app.get('/api/inventory', isAuthenticated, async (req: any, res) => {
+  app.get("/api/inventory", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const inventory = await storage.getInventory(userId);
@@ -211,10 +225,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/inventory', isAuthenticated, async (req: any, res) => {
+  app.post("/api/inventory", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const inventoryData = insertInventorySchema.parse({ ...req.body, userId });
+      const inventoryData = insertInventorySchema.parse({
+        ...req.body,
+        userId,
+      });
       const item = await storage.createInventoryItem(inventoryData);
       res.status(201).json(item);
     } catch (error) {
@@ -223,19 +240,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/inventory/low-stock', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const lowStockItems = await storage.getLowStockItems(userId);
-      res.json(lowStockItems);
-    } catch (error) {
-      console.error("Error fetching low stock items:", error);
-      res.status(500).json({ message: "Failed to fetch low stock items" });
-    }
-  });
+  app.get(
+    "/api/inventory/low-stock",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const lowStockItems = await storage.getLowStockItems(userId);
+        res.json(lowStockItems);
+      } catch (error) {
+        console.error("Error fetching low stock items:", error);
+        res.status(500).json({ message: "Failed to fetch low stock items" });
+      }
+    },
+  );
 
   // Equipment routes
-  app.get('/api/equipment', isAuthenticated, async (req: any, res) => {
+  app.get("/api/equipment", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const equipment = await storage.getEquipment(userId);
@@ -246,10 +267,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/equipment', isAuthenticated, async (req: any, res) => {
+  app.post("/api/equipment", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const equipmentData = insertEquipmentSchema.parse({ ...req.body, userId });
+      const equipmentData = insertEquipmentSchema.parse({
+        ...req.body,
+        userId,
+      });
       const equipment = await storage.createEquipment(equipmentData);
       res.status(201).json(equipment);
     } catch (error) {
@@ -258,12 +282,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/equipment/:id', isAuthenticated, async (req: any, res) => {
+  app.put("/api/equipment/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       const equipmentData = insertEquipmentSchema.partial().parse(req.body);
-      const equipment = await storage.updateEquipment(id, equipmentData, userId);
+      const equipment = await storage.updateEquipment(
+        id,
+        equipmentData,
+        userId,
+      );
       res.json(equipment);
     } catch (error) {
       console.error("Error updating equipment:", error);
@@ -271,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/equipment/:id', isAuthenticated, async (req: any, res) => {
+  app.delete("/api/equipment/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -284,32 +312,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Maintenance records routes
-  app.get('/api/equipment/:equipmentId/maintenance-records', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const equipmentId = parseInt(req.params.equipmentId);
-      const records = await storage.getMaintenanceRecords(equipmentId, userId);
-      res.json(records);
-    } catch (error) {
-      console.error("Error fetching maintenance records:", error);
-      res.status(500).json({ message: "Failed to fetch maintenance records" });
-    }
-  });
+  app.get(
+    "/api/equipment/:equipmentId/maintenance-records",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const equipmentId = parseInt(req.params.equipmentId);
+        const records = await storage.getMaintenanceRecords(
+          equipmentId,
+          userId,
+        );
+        res.json(records);
+      } catch (error) {
+        console.error("Error fetching maintenance records:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to fetch maintenance records" });
+      }
+    },
+  );
 
-  app.post('/api/maintenance-records', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const recordData = insertMaintenanceRecordSchema.parse({ ...req.body, userId });
-      const record = await storage.createMaintenanceRecord(recordData);
-      res.status(201).json(record);
-    } catch (error) {
-      console.error("Error creating maintenance record:", error);
-      res.status(500).json({ message: "Failed to create maintenance record" });
-    }
-  });
+  app.post(
+    "/api/maintenance-records",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const recordData = insertMaintenanceRecordSchema.parse({
+          ...req.body,
+          userId,
+        });
+        const record = await storage.createMaintenanceRecord(recordData);
+        res.status(201).json(record);
+      } catch (error) {
+        console.error("Error creating maintenance record:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to create maintenance record" });
+      }
+    },
+  );
 
   // Document routes
-  app.get('/api/documents', isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const documents = await storage.getDocuments(userId);
@@ -320,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/documents', isAuthenticated, async (req: any, res) => {
+  app.post("/api/documents", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const documentData = insertDocumentSchema.parse({ ...req.body, userId });
@@ -333,21 +379,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Weather route (example using OpenWeatherMap API)
-  app.get('/api/weather', isAuthenticated, async (req: any, res) => {
+  app.get("/api/weather", isAuthenticated, async (req: any, res) => {
     try {
-      const apiKey = process.env.OPENWEATHER_API_KEY || process.env.WEATHER_API_KEY || "demo_key";
+      const apiKey =
+        process.env.OPENWEATHER_API_KEY ||
+        process.env.WEATHER_API_KEY ||
+        "demo_key";
       const { lat, lon } = req.query;
-      
+
       if (!lat || !lon) {
-        return res.status(400).json({ message: "Latitude and longitude are required" });
+        return res
+          .status(400)
+          .json({ message: "Latitude and longitude are required" });
       }
 
       const response = await fetch(
-        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`,
       );
 
       if (!response.ok) {
-        return res.status(response.status).json({ message: "Weather service unavailable" });
+        return res
+          .status(response.status)
+          .json({ message: "Weather service unavailable" });
       }
 
       const weatherData = await response.json();
@@ -359,7 +412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Budget routes
-  app.get('/api/budgets', isAuthenticated, async (req: any, res) => {
+  app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const budgets = await storage.getBudgets(userId);
@@ -370,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/budgets', isAuthenticated, async (req: any, res) => {
+  app.post("/api/budgets", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const budgetData = insertBudgetSchema.parse({ ...req.body, userId });
@@ -382,7 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/budgets/:id', isAuthenticated, async (req: any, res) => {
+  app.put("/api/budgets/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -395,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/budgets/:id', isAuthenticated, async (req: any, res) => {
+  app.delete("/api/budgets/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -407,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/budget-status', isAuthenticated, async (req: any, res) => {
+  app.get("/api/budget-status", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { period } = req.query;
@@ -420,7 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Account routes
-  app.get('/api/accounts', isAuthenticated, async (req: any, res) => {
+  app.get("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const accounts = await storage.getAccounts(userId);
@@ -431,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/accounts', isAuthenticated, async (req: any, res) => {
+  app.post("/api/accounts", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const accountData = insertAccountSchema.parse({ ...req.body, userId });
@@ -443,7 +496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/accounts/:id', isAuthenticated, async (req: any, res) => {
+  app.put("/api/accounts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
@@ -457,11 +510,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Journal entry routes
-  app.get('/api/journal-entries', isAuthenticated, async (req: any, res) => {
+  app.get("/api/journal-entries", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { accountId } = req.query;
-      const entries = await storage.getJournalEntries(userId, accountId ? parseInt(accountId as string) : undefined);
+      const entries = await storage.getJournalEntries(
+        userId,
+        accountId ? parseInt(accountId as string) : undefined,
+      );
       res.json(entries);
     } catch (error) {
       console.error("Error fetching journal entries:", error);
@@ -469,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/journal-entries', isAuthenticated, async (req: any, res) => {
+  app.post("/api/journal-entries", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const entryData = insertJournalEntrySchema.parse({ ...req.body, userId });
@@ -481,7 +537,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/trial-balance', isAuthenticated, async (req: any, res) => {
+  app.get("/api/trial-balance", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const trialBalance = await storage.getTrialBalance(userId);
@@ -493,12 +549,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced transaction route to include updating transaction
-  app.put('/api/transactions/:id', isAuthenticated, async (req: any, res) => {
+  app.put("/api/transactions/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const id = parseInt(req.params.id);
       const transactionData = insertTransactionSchema.partial().parse(req.body);
-      const transaction = await storage.updateTransaction(id, transactionData, userId);
+      const transaction = await storage.updateTransaction(
+        id,
+        transactionData,
+        userId,
+      );
       res.json(transaction);
     } catch (error) {
       console.error("Error updating transaction:", error);
@@ -506,20 +566,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/transactions/:id', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const id = parseInt(req.params.id);
-      await storage.deleteTransaction(id, userId);
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting transaction:", error);
-      res.status(500).json({ message: "Failed to delete transaction" });
-    }
-  });
+  app.delete(
+    "/api/transactions/:id",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const id = parseInt(req.params.id);
+        await storage.deleteTransaction(id, userId);
+        res.status(204).send();
+      } catch (error) {
+        console.error("Error deleting transaction:", error);
+        res.status(500).json({ message: "Failed to delete transaction" });
+      }
+    },
+  );
 
   // Seed database endpoint
-  app.post('/api/seed-database', isAuthenticated, async (req: any, res) => {
+  app.post("/api/seed-database", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const success = await seedDatabase(userId);
