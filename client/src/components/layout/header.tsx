@@ -78,7 +78,7 @@ export default function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="cursor-pointer flex items-center space-x-2"
-                  onClick={() => setLocation('/profile?tab=settings')}
+                  onClick={() => setLocation('/settings')}
                 >
                   <Settings className="h-4 w-4" />
                   <span>Settings</span>

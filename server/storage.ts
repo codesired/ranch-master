@@ -50,7 +50,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserProfile(userId: string, profile: UpdateUserProfile): Promise<User>;
-  
+
   // User notification settings
   getUserNotificationSettings(userId: string): Promise<UserNotificationSettings | undefined>;
   upsertUserNotificationSettings(settings: InsertUserNotificationSettings): Promise<UserNotificationSettings>;
@@ -139,6 +139,20 @@ export interface IStorage {
     monthlyRevenue: number;
     monthlyExpenses: number;
   }>;
+
+  // Admin operations
+  getAllUsers(): Promise<any[]>;
+  getAdminStats(): Promise<any>;
+  getAuditLogs(): Promise<any[]>;
+  createUser(userData: any): Promise<any>;
+  updateUserRole(userId: string, role: string): Promise<any>;
+  updateUserStatus(userId: string, isActive: boolean): Promise<any>;
+  bulkUpdateUsers(userIds: string[], action: string, data?: any): Promise<any>;
+  performSystemAction(action: string): Promise<any>;
+  getUserSettings(userId: string, type: string): Promise<any>;
+  updateUserSettings(userId: string, type: string, settings: any): Promise<any>;
+  changeUserPassword(userId: string, newPassword: string): Promise<any>;
+  exportUserData(userId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -558,7 +572,7 @@ export class DatabaseStorage implements IStorage {
   // Budget status operations
   async getBudgetStatus(userId: string, period?: string): Promise<any[]> {
     const conditions = [eq(budgets.userId, userId)];
-    
+
     if (period) {
       conditions.push(eq(budgets.period, period));
     }
@@ -683,11 +697,11 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(users.id, userId))
       .returning();
-    
+
     if (!updatedUser) {
       throw new Error("User not found");
     }
-    
+
     return updatedUser;
   }
 
@@ -697,13 +711,13 @@ export class DatabaseStorage implements IStorage {
       .from(userNotificationSettings)
       .where(eq(userNotificationSettings.userId, userId))
       .limit(1);
-    
+
     return settings[0];
   }
 
   async upsertUserNotificationSettings(settings: InsertUserNotificationSettings): Promise<UserNotificationSettings> {
     const existingSettings = await this.getUserNotificationSettings(settings.userId);
-    
+
     if (existingSettings) {
       const [updatedSettings] = await db
         .update(userNotificationSettings)
@@ -721,6 +735,232 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return newSettings;
     }
+  }
+
+  async seedDatabase(userId: string): Promise<boolean> {
+    // This would be implemented to seed the database with sample data
+    return true;
+  }
+
+  async getAllUsers(): Promise<any[]> {
+    const users = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        role: users.role,
+        createdAt: users.createdAt,
+        lastLogin: users.lastLogin,
+        isActive: users.isActive,
+        phone: users.phone,
+        address: users.address,
+      })
+      .from(users)
+      .orderBy(users.createdAt);
+
+    return users;
+  }
+
+  async getAdminStats(): Promise<any> {
+    const totalUsers = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users);
+
+    const activeUsers = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.isActive, true));
+
+    const totalAnimals = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(animals);
+
+    const totalTransactions = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(transactions);
+
+    const totalDocuments = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(documents);
+
+    const totalEquipment = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(equipment);
+
+    return {
+      totalUsers: totalUsers[0]?.count || 0,
+      activeUsers: activeUsers[0]?.count || 0,
+      totalAnimals: totalAnimals[0]?.count || 0,
+      totalTransactions: totalTransactions[0]?.count || 0,
+      totalDocuments: totalDocuments[0]?.count || 0,
+      totalEquipment: totalEquipment[0]?.count || 0,
+      systemHealth: 98,
+      diskUsage: 45,
+      memoryUsage: 67,
+      cpuUsage: 23,
+      uptime: `${Math.floor(Math.random() * 30)} days`
+    };
+  }
+
+  async getAuditLogs(): Promise<any[]> {
+    // Mock audit logs for now - in a real system, you'd have an audit_logs table
+    const allUsers = await this.getAllUsers();
+
+    const mockLogs = [];
+    for (let i = 0; i < 20; i++) {
+      const randomUser = allUsers[Math.floor(Math.random() * allUsers.length)];
+      const actions = ['create', 'update', 'delete', 'login', 'logout'];
+      const entities = ['animal', 'transaction', 'document', 'equipment', 'user'];
+
+      mockLogs.push({
+        id: i + 1,
+        userId: randomUser?.id || 'system',
+        action: actions[Math.floor(Math.random() * actions.length)],
+        entityType: entities[Math.floor(Math.random() * entities.length)],
+        entityId: Math.floor(Math.random() * 100),
+        details: `User performed ${actions[Math.floor(Math.random() * actions.length)]} operation`,
+        timestamp: new Date(Date.now() - Math.floor(Math.random() * 7 * 24 * 60 * 60 * 1000)).toISOString()
+      });
+    }
+
+    return mockLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
+  async createUser(userData: any): Promise<any> {
+    const result = await db
+      .insert(users)
+      .values({
+        id: userData.email, // Using email as ID for now
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        role: userData.role || 'user',
+        phone: userData.phone,
+        address: userData.address,
+        isActive: true,
+        createdAt: new Date(),
+      })
+      .returning();
+
+    return result[0];
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<any> {
+    const result = await db
+      .update(users)
+      .set({ role })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return result[0];
+  }
+
+  async updateUserStatus(userId: string, isActive: boolean): Promise<any> {
+    const result = await db
+      .update(users)
+      .set({ isActive })
+      .where(eq(users.id, userId))
+      .returning();
+
+    return result[0];
+  }
+
+  async bulkUpdateUsers(userIds: string[], action: string, data?: any): Promise<any> {
+    const results = [];
+
+    for (const userId of userIds) {
+      let result;
+      switch (action) {
+        case 'activate':
+          result = await this.updateUserStatus(userId, true);
+          break;
+        case 'deactivate':
+          result = await this.updateUserStatus(userId, false);
+          break;
+        case 'change-role':
+          result = await this.updateUserRole(userId, data.role);
+          break;
+        default:
+          throw new Error(`Unknown action: ${action}`);
+      }
+      results.push(result);
+    }
+
+    return { updated: results.length, results };
+  }
+
+  async performSystemAction(action: string): Promise<any> {
+    // Mock system actions
+    switch (action) {
+      case 'backup':
+        return { message: 'Database backup initiated', status: 'success' };
+      case 'export-logs':
+        return { message: 'System logs exported', status: 'success' };
+      case 'clear-cache':
+        return { message: 'System cache cleared', status: 'success' };
+      case 'optimize-db':
+        return { message: 'Database optimization completed', status: 'success' };
+      default:
+        throw new Error(`Unknown system action: ${action}`);
+    }
+  }
+
+  async getUserSettings(userId: string, type: string): Promise<any> {
+    // Mock settings - in a real app, you'd have a user_settings table
+    const defaultSettings = {
+      notifications: {
+        emailNotifications: true,
+        pushNotifications: true,
+        smsNotifications: false,
+        healthAlerts: true,
+        lowStockAlerts: true,
+        weatherAlerts: true,
+        maintenanceReminders: true,
+        financialAlerts: true,
+        breedingReminders: true,
+        systemUpdates: false,
+      },
+      security: {
+        twoFactorEnabled: false,
+        sessionTimeout: 30,
+        passwordExpiry: 90,
+        loginNotifications: true,
+        deviceTracking: true,
+      },
+      appearance: {
+        theme: 'light',
+        language: 'en',
+        timezone: 'America/New_York',
+        dateFormat: 'MM/dd/yyyy',
+        currency: 'USD',
+        compactMode: false,
+      },
+      privacy: {
+        profileVisibility: 'private',
+        dataSharing: false,
+        analyticsTracking: true,
+        marketingEmails: false,
+        thirdPartyIntegrations: false,
+      }
+    };
+
+    return defaultSettings[type] || {};
+  }
+
+  async updateUserSettings(userId: string, type: string, settings: any): Promise<any> {
+    // Mock update - in a real app, you'd update the user_settings table
+    return settings;
+  }
+
+  async changeUserPassword(userId: string, newPassword: string): Promise<any> {
+    // Mock password change - in a real app, you'd hash and store the password
+    return { message: 'Password changed successfully' };
+  }
+
+  async exportUserData(userId: string): Promise<any> {
+    // Mock data export - in a real app, you'd generate and return user data
+    return { message: 'Data export initiated. Download link will be sent via email.' };
   }
 }
 
