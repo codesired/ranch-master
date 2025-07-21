@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NotificationSystem } from "@/components/notifications/notification-system";
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
@@ -29,16 +30,22 @@ export default function Header() {
             <Tractor className="h-8 w-8 text-white" />
             <h1 className="text-xl font-bold">Ranch Management System</h1>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             {/* Weather Widget */}
             <div className="hidden md:flex items-center space-x-2 bg-green-600 px-3 py-1 rounded-lg">
               <CloudSun className="h-4 w-4 text-harvest-orange" />
               <span className="text-sm">72°F | Sunny</span>
             </div>
+
             
-            {/* User Menu */}
-            <DropdownMenu>
+          <Button variant="ghost" size="icon" className="md:hidden">
+            <Menu className="h-5 w-5" />
+          </Button>
+
+          <NotificationSystem />
+
+          <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center space-x-2 text-white hover:bg-green-600">
                   <Avatar className="h-8 w-8">

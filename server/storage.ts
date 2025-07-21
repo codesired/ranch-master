@@ -743,7 +743,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<any[]> {
-    const users = await db
+    const usersList = await db
       .select({
         id: users.id,
         email: users.email,
@@ -759,33 +759,33 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .orderBy(users.createdAt);
 
-    return users;
+    return usersList;
   }
 
   async getAdminStats(): Promise<any> {
     const totalUsers = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: count() })
       .from(users);
 
     const activeUsers = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: count() })
       .from(users)
       .where(eq(users.isActive, true));
 
     const totalAnimals = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: count() })
       .from(animals);
 
     const totalTransactions = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: count() })
       .from(transactions);
 
     const totalDocuments = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: count() })
       .from(documents);
 
     const totalEquipment = await db
-      .select({ count: sql<number>`count(*)` })
+      .select({ count: count() })
       .from(equipment);
 
     return {
@@ -961,6 +961,49 @@ export class DatabaseStorage implements IStorage {
   async exportUserData(userId: string): Promise<any> {
     // Mock data export - in a real app, you'd generate and return user data
     return { message: 'Data export initiated. Download link will be sent via email.' };
+  }
+
+  async getUserNotifications(userId: string): Promise<any[]> {
+    // Mock notifications - in a real app, you'd have a notifications table
+    const mockNotifications = [
+      {
+        id: '1',
+        type: 'info',
+        title: 'Welcome to Ranch Manager',
+        message: 'Your account has been set up successfully.',
+        read: false,
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: '2',
+        type: 'warning',
+        title: 'Low Stock Alert',
+        message: 'Several inventory items are running low.',
+        read: false,
+        createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+        actionUrl: '/inventory',
+      },
+      {
+        id: '3',
+        type: 'success',
+        title: 'Backup Complete',
+        message: 'Your data has been backed up successfully.',
+        read: true,
+        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    return mockNotifications;
+  }
+
+  async markNotificationAsRead(notificationId: string, userId: string): Promise<void> {
+    // Mock implementation - in a real app, you'd update the notifications table
+    console.log(`Marked notification ${notificationId} as read for user ${userId}`);
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    // Mock implementation - in a real app, you'd update all notifications for the user
+    console.log(`Marked all notifications as read for user ${userId}`);
   }
 }
 
