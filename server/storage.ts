@@ -376,8 +376,7 @@ export class DatabaseStorage implements IStorage {
       .from(inventory)
       .where(and(
         eq(inventory.userId, userId),
-        // Use raw SQL for comparison between columns
-        // qty <= minThreshold
+        sql`${inventory.quantity} <= ${inventory.minThreshold}`
       ))
       .orderBy(inventory.name);
   }

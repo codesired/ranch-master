@@ -60,6 +60,8 @@ import {
 import { AnimalForm } from "@/components/forms/animal-form";
 import LoadingSpinner from "@/components/shared/loading-spinner";
 import { format } from "date-fns";
+import { HealthRecordForm } from "@/components/forms/health-record-form";
+import { BreedingRecordForm } from "@/components/forms/breeding-record-form";
 
 interface Animal {
   id: number;
@@ -568,10 +570,17 @@ export default function Livestock() {
                   <CardTitle className="text-dark-green">Health Management</CardTitle>
                   <CardDescription>Track vaccinations, treatments, and medical records</CardDescription>
                 </div>
-                <Button className="ranch-button-primary">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Health Record
-                </Button>
+                <Dialog open={showHealthForm} onOpenChange={setShowHealthForm}>
+                  <DialogTrigger asChild>
+                    <Button className="ranch-button-primary">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Health Record
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <HealthRecordForm onSuccess={() => setShowHealthForm(false)} />
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
@@ -642,10 +651,17 @@ export default function Livestock() {
                   <CardTitle className="text-dark-green">Breeding Management</CardTitle>
                   <CardDescription>Track breeding cycles, pregnancies, and births</CardDescription>
                 </div>
-                <Button className="ranch-button-primary">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Breeding Record
-                </Button>
+                <Dialog open={showBreedingForm} onOpenChange={setShowBreedingForm}>
+                  <DialogTrigger asChild>
+                    <Button className="ranch-button-primary">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Breeding Record
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <BreedingRecordForm onSuccess={() => setShowBreedingForm(false)} />
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>

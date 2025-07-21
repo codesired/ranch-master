@@ -414,6 +414,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/documents/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const documents = await storage.getDocuments(userId);
+      
+      const totalDocuments = documents.length;
+      const now = new Date();
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      
+      const recentUploads = documents.filter((doc: any) => 
+        new Date(doc.createdAt) > oneWeekAgo
+      ).length;
+      
+      const expiringSoon = documents.filter((doc: any) => 
+        doc.expiryDate && new Date(doc.expiryDate) <= thirtyDaysFromNow
+      ).length;
+      
+      const categories = new Set(documents.map((doc: any) => doc.category));
+      const categoriesCount = categories.size;
+      
+      // Mock storage usage for now
+      const storageUsed = Math.min(Math.round((totalDocuments / 1000) * 100), 100);
+      
+      res.json({
+        totalDocuments,
+        recentUploads,
+        expiringSoon,
+        storageUsed,
+        categoriesCount
+      });
+    } catch (error) {
+      console.error("Error fetching document stats:", error);
+      res.status(500).json({ message: "Failed to fetch document stats" });
+    }
+  });
+
   app.post("/api/documents", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -423,6 +460,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating document:", error);
       res.status(500).json({ message: "Failed to create document" });
+    }
+  });
+
+  app.put("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      const documentData = insertDocumentSchema.partial().parse(req.body);
+      const document = await storage.updateDocument(id, documentData, userId);
+      res.json(document);
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ message: "Failed to update document" });
+    }
+  });
+
+  app.delete("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const id = parseInt(req.params.id);
+      await storage.deleteDocument(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
     }
   });
 
