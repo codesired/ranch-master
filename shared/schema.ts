@@ -1,4 +1,3 @@
-
 import {
   pgTable,
   text,
@@ -39,14 +38,14 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Get database type from environment
-const dbType = (process.env.DATABASE_TYPE || 'postgresql').toLowerCase();
+const dbType = (process.env.DATABASE_TYPE || "postgresql").toLowerCase();
 
 // Database-specific table creators
 const createTable = (name: string, columns: any, tableOptions?: any) => {
   switch (dbType) {
-    case 'mysql':
+    case "mysql":
       return mysqlTable(name, columns, tableOptions);
-    case 'sqlite':
+    case "sqlite":
       return sqliteTable(name, columns, tableOptions);
     default: // postgresql
       return pgTable(name, columns, tableOptions);
@@ -56,39 +55,47 @@ const createTable = (name: string, columns: any, tableOptions?: any) => {
 // Database-specific column types
 const getColumnTypes = () => {
   switch (dbType) {
-    case 'mysql':
+    case "mysql":
       return {
         serial: () => mysqlInt("id").primaryKey().autoincrement(),
-        varchar: (name: string, options?: { length?: number }) => mysqlVarchar(name, { length: options?.length || 255 }),
+        varchar: (name: string, options?: { length?: number }) =>
+          mysqlVarchar(name, { length: options?.length || 255 }),
         text: (name: string) => mysqlText(name),
-        timestamp: (name: string) => mysqlTimestamp(name, { mode: 'date' }),
+        timestamp: (name: string) => mysqlTimestamp(name, { mode: "date" }),
         json: (name: string) => mysqlJson(name),
         integer: (name: string) => mysqlInt(name),
-        decimal: (name: string, precision = 10, scale = 2) => mysqlDecimal(name, { precision, scale }),
+        decimal: (name: string, precision = 10, scale = 2) =>
+          mysqlDecimal(name, { precision, scale }),
         boolean: (name: string) => mysqlBoolean(name),
         date: (name: string) => mysqlDate(name),
       };
-    case 'sqlite':
+    case "sqlite":
       return {
-        serial: () => sqliteInt("id", { mode: 'number' }).primaryKey({ autoIncrement: true }),
-        varchar: (name: string, options?: { length?: number }) => sqliteText(name),
+        serial: () =>
+          sqliteInt("id", { mode: "number" }).primaryKey({
+            autoIncrement: true,
+          }),
+        varchar: (name: string, options?: { length?: number }) =>
+          sqliteText(name),
         text: (name: string) => sqliteText(name),
-        timestamp: (name: string) => sqliteInt(name, { mode: 'timestamp' }),
-        json: (name: string) => sqliteText(name, { mode: 'json' }),
-        integer: (name: string) => sqliteInt(name, { mode: 'number' }),
+        timestamp: (name: string) => sqliteInt(name, { mode: "timestamp" }),
+        json: (name: string) => sqliteText(name, { mode: "json" }),
+        integer: (name: string) => sqliteInt(name, { mode: "number" }),
         decimal: (name: string, precision = 10, scale = 2) => sqliteReal(name),
-        boolean: (name: string) => sqliteInt(name, { mode: 'boolean' }),
+        boolean: (name: string) => sqliteInt(name, { mode: "boolean" }),
         date: (name: string) => sqliteText(name),
       };
     default: // postgresql
       return {
         serial: () => serial("id"),
-        varchar: (name: string, options?: { length?: number }) => varchar(name, { length: options?.length || 255 }),
+        varchar: (name: string, options?: { length?: number }) =>
+          varchar(name, { length: options?.length || 255 }),
         text: (name: string) => text(name),
         timestamp: (name: string) => timestamp(name),
         json: (name: string) => jsonb(name),
         integer: (name: string) => integer(name),
-        decimal: (name: string, precision = 10, scale = 2) => decimal(name, { precision, scale }),
+        decimal: (name: string, precision = 10, scale = 2) =>
+          decimal(name, { precision, scale }),
         boolean: (name: string) => boolean(name),
         date: (name: string) => date(name),
       };
@@ -106,8 +113,11 @@ export const sessions = createTable(
     expire: col.timestamp("expire").notNull(),
   },
   (table: any) => ({
-    expireIdx: dbType === 'sqlite' ? undefined : index("IDX_session_expire").on(table.expire)
-  })
+    expireIdx:
+      dbType === "sqlite"
+        ? undefined
+        : index("IDX_session_expire").on(table.expire),
+  }),
 );
 
 // User storage table for Replit Auth
@@ -123,8 +133,12 @@ export const users = createTable("users", {
   role: col.varchar("role").default("user").notNull(),
   isActive: col.boolean("is_active").default(true),
   lastLogin: col.timestamp("last_login"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // Animals table
@@ -152,8 +166,12 @@ export const animals = createTable("animals", {
   registrationNumber: col.varchar("registration_number"),
   microchipId: col.varchar("microchip_id"),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // Health records table
@@ -168,7 +186,9 @@ export const healthRecords = createTable("health_records", {
   cost: col.decimal("cost", 10, 2),
   nextDueDate: col.date("next_due_date"),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
 });
 
 // Breeding records table
@@ -181,7 +201,9 @@ export const breedingRecords = createTable("breeding_records", {
   expectedBirthDate: col.date("expected_birth_date"),
   actualBirthDate: col.date("actual_birth_date"),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
 });
 
 // Transactions table
@@ -195,8 +217,10 @@ export const transactions = createTable("transactions", {
   date: col.date("date").notNull(),
   paymentMethod: col.varchar("payment_method"),
   receiptUrl: col.varchar("receipt_url"),
-  tags: dbType === 'postgresql' ? text("tags").array() : col.text("tags"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  tags: dbType === "postgresql" ? text("tags").array() : col.text("tags"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
 });
 
 // Inventory table
@@ -213,8 +237,12 @@ export const inventory = createTable("inventory", {
   expiryDate: col.date("expiry_date"),
   minThreshold: col.decimal("min_threshold", 10, 3),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // Equipment table
@@ -232,8 +260,12 @@ export const equipment = createTable("equipment", {
   status: col.varchar("status").default("operational"),
   location: col.varchar("location"),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // Maintenance records table
@@ -248,7 +280,9 @@ export const maintenanceRecords = createTable("maintenance_records", {
   performedBy: col.varchar("performed_by"),
   nextMaintenanceDate: col.date("next_maintenance_date"),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
 });
 
 // Documents with enhanced features
@@ -262,14 +296,16 @@ export const documents = createTable("documents", {
   fileName: col.varchar("file_name").notNull(),
   fileSize: col.integer("file_size"),
   mimeType: col.varchar("mime_type"),
-  tags: dbType === 'postgresql' ? text("tags").array() : col.text("tags"),
+  tags: dbType === "postgresql" ? text("tags").array() : col.text("tags"),
   isPublic: col.boolean("is_public").default(false),
   expiryDate: col.date("expiry_date"),
   reminderDate: col.date("reminder_date"),
   relatedEntityType: col.varchar("related_entity_type"),
   relatedEntityId: col.integer("related_entity_id"),
   uploadedBy: col.varchar("uploaded_by"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
 });
 
 // Budgets table
@@ -285,8 +321,12 @@ export const budgets = createTable("budgets", {
   endDate: col.date("end_date").notNull(),
   isActive: col.boolean("is_active").default(true),
   notes: col.text("notes"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // Accounts table
@@ -299,8 +339,12 @@ export const accounts = createTable("accounts", {
   subType: col.varchar("sub_type"),
   balance: col.decimal("balance", 12, 2).default("0.00"),
   isActive: col.boolean("is_active").default(true),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // Journal entries table
@@ -314,27 +358,38 @@ export const journalEntries = createTable("journal_entries", {
   totalDebit: col.decimal("total_debit", 12, 2).notNull(),
   totalCredit: col.decimal("total_credit", 12, 2).notNull(),
   status: col.varchar("status").default("draft"),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+  createdAt: col.timestamp("created_at").defaultNow
+    ? col.timestamp("created_at").defaultNow()
+    : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow
+    ? col.timestamp("updated_at").defaultNow()
+    : col.timestamp("updated_at"),
 });
 
 // User notification settings table
-export const userNotificationSettings = createTable("user_notification_settings", {
-  id: col.serial().primaryKey(),
-  userId: col.varchar("user_id").notNull(),
-  emailNotifications: col.boolean("email_notifications").default(true),
-  pushNotifications: col.boolean("push_notifications").default(true),
-  smsNotifications: col.boolean("sms_notifications").default(false),
-  healthAlerts: col.boolean("health_alerts").default(true),
-  lowStockAlerts: col.boolean("low_stock_alerts").default(true),
-  weatherAlerts: col.boolean("weather_alerts").default(true),
-  maintenanceReminders: col.boolean("maintenance_reminders").default(true),
-  financialAlerts: col.boolean("financial_alerts").default(true),
-  breedingReminders: col.boolean("breeding_reminders").default(true),
-  systemUpdates: col.boolean("system_updates").default(false),
-  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
-  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
-});
+export const userNotificationSettings = createTable(
+  "user_notification_settings",
+  {
+    id: col.serial().primaryKey(),
+    userId: col.varchar("user_id").notNull(),
+    emailNotifications: col.boolean("email_notifications").default(true),
+    pushNotifications: col.boolean("push_notifications").default(true),
+    smsNotifications: col.boolean("sms_notifications").default(false),
+    healthAlerts: col.boolean("health_alerts").default(true),
+    lowStockAlerts: col.boolean("low_stock_alerts").default(true),
+    weatherAlerts: col.boolean("weather_alerts").default(true),
+    maintenanceReminders: col.boolean("maintenance_reminders").default(true),
+    financialAlerts: col.boolean("financial_alerts").default(true),
+    breedingReminders: col.boolean("breeding_reminders").default(true),
+    systemUpdates: col.boolean("system_updates").default(false),
+    createdAt: col.timestamp("created_at").defaultNow
+      ? col.timestamp("created_at").defaultNow()
+      : col.timestamp("created_at"),
+    updatedAt: col.timestamp("updated_at").defaultNow
+      ? col.timestamp("updated_at").defaultNow()
+      : col.timestamp("updated_at"),
+  },
+);
 
 // Relations (same for all database types)
 export const usersRelations = relations(users, ({ many }) => ({
@@ -359,15 +414,32 @@ export const animalsRelations = relations(animals, ({ one, many }) => ({
 }));
 
 export const healthRecordsRelations = relations(healthRecords, ({ one }) => ({
-  animal: one(animals, { fields: [healthRecords.animalId], references: [animals.id] }),
+  animal: one(animals, {
+    fields: [healthRecords.animalId],
+    references: [animals.id],
+  }),
   user: one(users, { fields: [healthRecords.userId], references: [users.id] }),
 }));
 
-export const breedingRecordsRelations = relations(breedingRecords, ({ one }) => ({
-  mother: one(animals, { fields: [breedingRecords.motherId], references: [animals.id], relationName: "mother" }),
-  father: one(animals, { fields: [breedingRecords.fatherId], references: [animals.id], relationName: "father" }),
-  user: one(users, { fields: [breedingRecords.userId], references: [users.id] }),
-}));
+export const breedingRecordsRelations = relations(
+  breedingRecords,
+  ({ one }) => ({
+    mother: one(animals, {
+      fields: [breedingRecords.motherId],
+      references: [animals.id],
+      relationName: "mother",
+    }),
+    father: one(animals, {
+      fields: [breedingRecords.fatherId],
+      references: [animals.id],
+      relationName: "father",
+    }),
+    user: one(users, {
+      fields: [breedingRecords.userId],
+      references: [users.id],
+    }),
+  }),
+);
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   user: one(users, { fields: [transactions.userId], references: [users.id] }),
@@ -382,10 +454,19 @@ export const equipmentRelations = relations(equipment, ({ one, many }) => ({
   maintenanceRecords: many(maintenanceRecords),
 }));
 
-export const maintenanceRecordsRelations = relations(maintenanceRecords, ({ one }) => ({
-  equipment: one(equipment, { fields: [maintenanceRecords.equipmentId], references: [equipment.id] }),
-  user: one(users, { fields: [maintenanceRecords.userId], references: [users.id] }),
-}));
+export const maintenanceRecordsRelations = relations(
+  maintenanceRecords,
+  ({ one }) => ({
+    equipment: one(equipment, {
+      fields: [maintenanceRecords.equipmentId],
+      references: [equipment.id],
+    }),
+    user: one(users, {
+      fields: [maintenanceRecords.userId],
+      references: [users.id],
+    }),
+  }),
+);
 
 export const documentsRelations = relations(documents, ({ one }) => ({
   user: one(users, { fields: [documents.userId], references: [users.id] }),
@@ -403,9 +484,15 @@ export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
   user: one(users, { fields: [journalEntries.userId], references: [users.id] }),
 }));
 
-export const userNotificationSettingsRelations = relations(userNotificationSettings, ({ one }) => ({
-  user: one(users, { fields: [userNotificationSettings.userId], references: [users.id] }),
-}));
+export const userNotificationSettingsRelations = relations(
+  userNotificationSettings,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userNotificationSettings.userId],
+      references: [users.id],
+    }),
+  }),
+);
 
 // Type definitions (inferred from tables)
 export type UpsertUser = typeof users.$inferInsert;
@@ -432,9 +519,13 @@ export type InsertAccount = typeof accounts.$inferInsert;
 export type Account = typeof accounts.$inferSelect;
 export type InsertJournalEntry = typeof journalEntries.$inferInsert;
 export type JournalEntry = typeof journalEntries.$inferSelect;
-export type InsertUserNotificationSettings = typeof userNotificationSettings.$inferInsert;
-export type UserNotificationSettings = typeof userNotificationSettings.$inferSelect;
-export type UpdateUserProfile = Partial<Pick<User, 'firstName' | 'lastName' | 'phone' | 'address' | 'bio'>>;
+export type InsertUserNotificationSettings =
+  typeof userNotificationSettings.$inferInsert;
+export type UserNotificationSettings =
+  typeof userNotificationSettings.$inferSelect;
+export type UpdateUserProfile = Partial<
+  Pick<User, "firstName" | "lastName" | "phone" | "address" | "bio">
+>;
 
 // Form schemas
 export const insertAnimalSchema = createInsertSchema(animals);
@@ -443,9 +534,12 @@ export const insertBreedingRecordSchema = createInsertSchema(breedingRecords);
 export const insertTransactionSchema = createInsertSchema(transactions);
 export const insertInventorySchema = createInsertSchema(inventory);
 export const insertEquipmentSchema = createInsertSchema(equipment);
-export const insertMaintenanceRecordSchema = createInsertSchema(maintenanceRecords);
+export const insertMaintenanceRecordSchema =
+  createInsertSchema(maintenanceRecords);
 export const insertDocumentSchema = createInsertSchema(documents);
 export const insertBudgetSchema = createInsertSchema(budgets);
 export const insertAccountSchema = createInsertSchema(accounts);
 export const insertJournalEntrySchema = createInsertSchema(journalEntries);
-export const insertUserNotificationSettingsSchema = createInsertSchema(userNotificationSettings);
+export const insertUserNotificationSettingsSchema = createInsertSchema(
+  userNotificationSettings,
+);

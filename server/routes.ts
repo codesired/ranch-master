@@ -26,7 +26,7 @@ import fs from "fs/promises";
 // Configure multer for file uploads
 const storage_multer = multer.diskStorage({
   destination: async function (req, file, cb) {
-    const uploadDir = 'uploads';
+    const uploadDir = "uploads";
     try {
       await fs.mkdir(uploadDir, { recursive: true });
     } catch (error) {
@@ -36,12 +36,15 @@ const storage_multer = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     // Generate unique filename with timestamp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(
+      null,
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
+    );
+  },
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage_multer,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -49,15 +52,17 @@ const upload = multer({
   fileFilter: function (req, file, cb) {
     // Allow specific file types
     const allowedTypes = /pdf|doc|docx|xls|xlsx|jpg|jpeg|png|txt|csv/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
     const mimetype = allowedTypes.test(file.mimetype);
-    
+
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error('Invalid file type'));
+      cb(new Error("Invalid file type"));
     }
-  }
+  },
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -65,15 +70,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Serve uploaded files
-  app.use('/uploads', isAuthenticated, (req: any, res, next) => {
+  app.use("/uploads", isAuthenticated, (req: any, res, next) => {
     // Add security headers for file downloads
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
     next();
   });
-  
+
   // Static file serving for uploads
-  app.use('/uploads', express.static('uploads'));
+  app.use("/uploads", express.static("uploads"));
 
   // Auth routes
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
@@ -101,37 +106,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification settings routes
-  app.get("/api/notifications/settings", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const settings = await storage.getUserNotificationSettings(userId);
-      res.json(settings || {
-        emailNotifications: true,
-        healthAlerts: true,
-        lowStockAlerts: true,
-        weatherAlerts: true,
-        maintenanceReminders: true,
-      });
-    } catch (error) {
-      console.error("Error fetching notification settings:", error);
-      res.status(500).json({ message: "Failed to fetch notification settings" });
-    }
-  });
+  app.get(
+    "/api/notifications/settings",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const settings = await storage.getUserNotificationSettings(userId);
+        res.json(
+          settings || {
+            emailNotifications: true,
+            healthAlerts: true,
+            lowStockAlerts: true,
+            weatherAlerts: true,
+            maintenanceReminders: true,
+          },
+        );
+      } catch (error) {
+        console.error("Error fetching notification settings:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to fetch notification settings" });
+      }
+    },
+  );
 
-  app.patch("/api/notifications/settings", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const settingsData = insertUserNotificationSettingsSchema.parse({
-        ...req.body,
-        userId,
-      });
-      const settings = await storage.upsertUserNotificationSettings(settingsData);
-      res.json(settings);
-    } catch (error) {
-      console.error("Error updating notification settings:", error);
-      res.status(500).json({ message: "Failed to update notification settings" });
-    }
-  });
+  app.patch(
+    "/api/notifications/settings",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const settingsData = insertUserNotificationSettingsSchema.parse({
+          ...req.body,
+          userId,
+        });
+        const settings =
+          await storage.upsertUserNotificationSettings(settingsData);
+        res.json(settings);
+      } catch (error) {
+        console.error("Error updating notification settings:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to update notification settings" });
+      }
+    },
+  );
 
   // Dashboard routes
   app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
@@ -469,32 +489,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const documents = await storage.getDocuments(userId);
-      
+
       const totalDocuments = documents.length;
       const now = new Date();
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      
-      const recentUploads = documents.filter((doc: any) => 
-        new Date(doc.createdAt) > oneWeekAgo
+      const thirtyDaysFromNow = new Date(
+        now.getTime() + 30 * 24 * 60 * 60 * 1000,
+      );
+
+      const recentUploads = documents.filter(
+        (doc: any) => new Date(doc.createdAt) > oneWeekAgo,
       ).length;
-      
-      const expiringSoon = documents.filter((doc: any) => 
-        doc.expiryDate && new Date(doc.expiryDate) <= thirtyDaysFromNow
+
+      const expiringSoon = documents.filter(
+        (doc: any) =>
+          doc.expiryDate && new Date(doc.expiryDate) <= thirtyDaysFromNow,
       ).length;
-      
+
       const categories = new Set(documents.map((doc: any) => doc.category));
       const categoriesCount = categories.size;
-      
+
       // Mock storage usage for now
-      const storageUsed = Math.min(Math.round((totalDocuments / 1000) * 100), 100);
-      
+      const storageUsed = Math.min(
+        Math.round((totalDocuments / 1000) * 100),
+        100,
+      );
+
       res.json({
         totalDocuments,
         recentUploads,
         expiringSoon,
         storageUsed,
-        categoriesCount
+        categoriesCount,
       });
     } catch (error) {
       console.error("Error fetching document stats:", error);
@@ -504,54 +530,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recentUploads: 0,
         expiringSoon: 0,
         storageUsed: 0,
-        categoriesCount: 0
+        categoriesCount: 0,
       });
     }
   });
 
-  app.post("/api/documents", isAuthenticated, upload.single('file'), async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
+  app.post(
+    "/api/documents",
+    isAuthenticated,
+    upload.single("file"),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
 
-      // Parse tags if provided
-      const tags = req.body.tags ? req.body.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [];
-      
-      const documentData = {
-        userId,
-        title: req.body.title,
-        category: req.body.category,
-        description: req.body.description || '',
-        fileUrl: `/uploads/${req.file.filename}`,
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        mimeType: req.file.mimetype,
-        tags,
-        isPublic: req.body.isPublic === 'true',
-        expiryDate: req.body.expiryDate || null,
-        relatedEntityType: req.body.relatedEntityType || null,
-        relatedEntityId: req.body.relatedEntityId ? parseInt(req.body.relatedEntityId) : null,
-      };
-
-      const validatedData = insertDocumentSchema.parse(documentData);
-      const document = await storage.createDocument(validatedData);
-      res.status(201).json(document);
-    } catch (error) {
-      console.error("Error creating document:", error);
-      // Clean up uploaded file if document creation fails
-      if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (unlinkError) {
-          console.error("Error deleting uploaded file:", unlinkError);
+        if (!req.file) {
+          return res.status(400).json({ message: "No file uploaded" });
         }
+
+        // Parse tags if provided
+        const tags = req.body.tags
+          ? req.body.tags
+              .split(",")
+              .map((tag: string) => tag.trim())
+              .filter(Boolean)
+          : [];
+
+        const documentData = {
+          userId,
+          title: req.body.title,
+          category: req.body.category,
+          description: req.body.description || "",
+          fileUrl: `/uploads/${req.file.filename}`,
+          fileName: req.file.originalname,
+          fileSize: req.file.size,
+          mimeType: req.file.mimetype,
+          tags,
+          isPublic: req.body.isPublic === "true",
+          expiryDate: req.body.expiryDate || null,
+          relatedEntityType: req.body.relatedEntityType || null,
+          relatedEntityId: req.body.relatedEntityId
+            ? parseInt(req.body.relatedEntityId)
+            : null,
+        };
+
+        const validatedData = insertDocumentSchema.parse(documentData);
+        const document = await storage.createDocument(validatedData);
+        res.status(201).json(document);
+      } catch (error) {
+        console.error("Error creating document:", error);
+        // Clean up uploaded file if document creation fails
+        if (req.file) {
+          try {
+            await fs.unlink(req.file.path);
+          } catch (unlinkError) {
+            console.error("Error deleting uploaded file:", unlinkError);
+          }
+        }
+        res.status(500).json({ message: "Failed to create document" });
       }
-      res.status(500).json({ message: "Failed to create document" });
-    }
-  });
+    },
+  );
 
   app.put("/api/documents/:id", isAuthenticated, async (req: any, res) => {
     try {
@@ -782,7 +820,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/users", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
+      if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
       const users = await storage.getAllUsers();
@@ -796,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
+      if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
       const stats = await storage.getAdminStats();
@@ -810,7 +848,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/audit-logs", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
+      if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
       const logs = await storage.getAuditLogs();
@@ -824,7 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/users", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
+      if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
       const newUser = await storage.createUser(req.body);
@@ -835,52 +873,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/admin/users/:userId/role", isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+  app.patch(
+    "/api/admin/users/:userId/role",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const user = await storage.getUser(req.user.claims.sub);
+        if (user?.role !== "admin") {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+        const updatedUser = await storage.updateUserRole(
+          req.params.userId,
+          req.body.role,
+        );
+        res.json(updatedUser);
+      } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({ message: "Failed to update user role" });
       }
-      const updatedUser = await storage.updateUserRole(req.params.userId, req.body.role);
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error updating user role:", error);
-      res.status(500).json({ message: "Failed to update user role" });
-    }
-  });
+    },
+  );
 
-  app.patch("/api/admin/users/:userId/activate", isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+  app.patch(
+    "/api/admin/users/:userId/activate",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const user = await storage.getUser(req.user.claims.sub);
+        if (user?.role !== "admin") {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+        const updatedUser = await storage.updateUserStatus(
+          req.params.userId,
+          true,
+        );
+        res.json(updatedUser);
+      } catch (error) {
+        console.error("Error activating user:", error);
+        res.status(500).json({ message: "Failed to activate user" });
       }
-      const updatedUser = await storage.updateUserStatus(req.params.userId, true);
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error activating user:", error);
-      res.status(500).json({ message: "Failed to activate user" });
-    }
-  });
+    },
+  );
 
-  app.patch("/api/admin/users/:userId/deactivate", isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+  app.patch(
+    "/api/admin/users/:userId/deactivate",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const user = await storage.getUser(req.user.claims.sub);
+        if (user?.role !== "admin") {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+        const updatedUser = await storage.updateUserStatus(
+          req.params.userId,
+          false,
+        );
+        res.json(updatedUser);
+      } catch (error) {
+        console.error("Error deactivating user:", error);
+        res.status(500).json({ message: "Failed to deactivate user" });
       }
-      const updatedUser = await storage.updateUserStatus(req.params.userId, false);
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error deactivating user:", error);
-      res.status(500).json({ message: "Failed to deactivate user" });
-    }
-  });
+    },
+  );
 
   app.patch("/api/admin/users/bulk", isAuthenticated, async (req: any, res) => {
     try {
       const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
+      if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
       const { userIds, action, data } = req.body;
@@ -892,20 +951,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/system/:action", isAuthenticated, async (req: any, res) => {
-    try {
-      const user = await storage.getUser(req.user.claims.sub);
-      if (user?.role !== 'admin') {
-        return res.status(403).json({ message: "Admin access required" });
+  app.post(
+    "/api/admin/system/:action",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const user = await storage.getUser(req.user.claims.sub);
+        if (user?.role !== "admin") {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+        const { action } = req.params;
+        const result = await storage.performSystemAction(action);
+        res.json(result);
+      } catch (error) {
+        console.error("Error performing system action:", error);
+        res.status(500).json({ message: "Failed to perform system action" });
       }
-      const { action } = req.params;
-      const result = await storage.performSystemAction(action);
-      res.json(result);
-    } catch (error) {
-      console.error("Error performing system action:", error);
-      res.status(500).json({ message: "Failed to perform system action" });
-    }
-  });
+    },
+  );
 
   // Notification routes
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
@@ -919,28 +982,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const notificationId = req.params.id;
-      await storage.markNotificationAsRead(notificationId, userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-      res.status(500).json({ message: "Failed to mark notification as read" });
-    }
-  });
+  app.patch(
+    "/api/notifications/:id/read",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const notificationId = req.params.id;
+        await storage.markNotificationAsRead(notificationId, userId);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error marking notification as read:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to mark notification as read" });
+      }
+    },
+  );
 
-  app.patch("/api/notifications/mark-all-read", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      await storage.markAllNotificationsAsRead(userId);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-      res.status(500).json({ message: "Failed to mark all notifications as read" });
-    }
-  });
+  app.patch(
+    "/api/notifications/mark-all-read",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        await storage.markAllNotificationsAsRead(userId);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error marking all notifications as read:", error);
+        res
+          .status(500)
+          .json({ message: "Failed to mark all notifications as read" });
+      }
+    },
+  );
 
   // Settings routes
   app.get("/api/settings/:type", isAuthenticated, async (req: any, res) => {
@@ -967,28 +1042,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/settings/change-password", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { newPassword } = req.body;
-      const result = await storage.changeUserPassword(userId, newPassword);
-      res.json(result);
-    } catch (error) {
-      console.error("Error changing password:", error);
-      res.status(500).json({ message: "Failed to change password" });
-    }
-  });
+  app.post(
+    "/api/settings/change-password",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const { newPassword } = req.body;
+        const result = await storage.changeUserPassword(userId, newPassword);
+        res.json(result);
+      } catch (error) {
+        console.error("Error changing password:", error);
+        res.status(500).json({ message: "Failed to change password" });
+      }
+    },
+  );
 
-  app.post("/api/settings/export-data", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const result = await storage.exportUserData(userId);
-      res.json(result);
-    } catch (error) {
-      console.error("Error exporting data:", error);
-      res.status(500).json({ message: "Failed to export data" });
-    }
-  });
+  app.post(
+    "/api/settings/export-data",
+    isAuthenticated,
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const result = await storage.exportUserData(userId);
+        res.json(result);
+      } catch (error) {
+        console.error("Error exporting data:", error);
+        res.status(500).json({ message: "Failed to export data" });
+      }
+    },
+  );
 
   // Seed database endpoint
   app.post("/api/seed-database", isAuthenticated, async (req: any, res) => {
