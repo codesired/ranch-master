@@ -15,8 +15,8 @@ import {
   insertBudgetSchema,
   insertAccountSchema,
   insertJournalEntrySchema,
-  updateUserProfileSchema,
   insertUserNotificationSettingsSchema,
+  type UpdateUserProfile,
 } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";

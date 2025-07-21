@@ -543,3 +543,11 @@ export const insertJournalEntrySchema = createInsertSchema(journalEntries);
 export const insertUserNotificationSettingsSchema = createInsertSchema(
   userNotificationSettings,
 );
+
+export const updateUserProfileSchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(), 
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  bio: z.string().optional(),
+});
