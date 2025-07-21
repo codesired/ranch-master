@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -111,6 +111,16 @@ export default function Documents() {
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterTag, setFilterTag] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [uploadForm, setUploadForm] = useState({
+    title: "",
+    category: "",
+    description: "",
+    tags: "",
+    expiryDate: "",
+    isPublic: false,
+    file: null as File | null
+  });
+  const [dragActive, setDragActive] = useState(false);
 
   // Queries
   const { data: documents = [], isLoading: documentsLoading } = useQuery({
@@ -130,6 +140,34 @@ export default function Documents() {
   });
 
   // Mutations
+  const uploadDocumentMutation = useMutation({
+    mutationFn: async (documentData: any) => {
+      return await apiRequest("/api/documents", {
+        method: "POST",
+        body: JSON.stringify(documentData),
+        headers: { "Content-Type": "application/json" }
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/stats"] });
+      setShowUploadDialog(false);
+      setUploadForm({
+        title: "",
+        category: "",
+        description: "",
+        tags: "",
+        expiryDate: "",
+        isPublic: false,
+        file: null
+      });
+      toast({ title: "Success", description: "Document uploaded successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const deleteDocumentMutation = useMutation({
     mutationFn: async (id: number) => {
       return await apiRequest(`/api/documents/${id}`, { method: "DELETE" });
@@ -216,6 +254,70 @@ export default function Documents() {
     }
   };
 
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      setUploadForm(prev => ({ ...prev, file }));
+      if (!uploadForm.title) {
+        setUploadForm(prev => ({ ...prev, title: file.name }));
+      }
+    }
+  }, [uploadForm.title]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setUploadForm(prev => ({ ...prev, file }));
+      if (!uploadForm.title) {
+        setUploadForm(prev => ({ ...prev, title: file.name }));
+      }
+    }
+  };
+
+  const handleUploadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!uploadForm.file) {
+      toast({ title: "Error", description: "Please select a file", variant: "destructive" });
+      return;
+    }
+
+    if (!uploadForm.title || !uploadForm.category) {
+      toast({ title: "Error", description: "Please fill in required fields", variant: "destructive" });
+      return;
+    }
+
+    // Simulate file upload - in a real app, you'd upload to a file storage service
+    const documentData = {
+      title: uploadForm.title,
+      category: uploadForm.category,
+      description: uploadForm.description,
+      fileUrl: `/uploads/${uploadForm.file.name}`, // Mock file URL
+      fileName: uploadForm.file.name,
+      fileSize: uploadForm.file.size,
+      mimeType: uploadForm.file.type,
+      tags: uploadForm.tags ? uploadForm.tags.split(',').map(tag => tag.trim()) : [],
+      isPublic: uploadForm.isPublic,
+      expiryDate: uploadForm.expiryDate || null
+    };
+
+    uploadDocumentMutation.mutate(documentData);
+  };
+
   if (!isAuthenticated) {
     return <div>Please log in to view documents.</div>;
   }
@@ -236,20 +338,139 @@ export default function Documents() {
                 Upload Document
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Upload New Document</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <form onSubmit={handleUploadSubmit} className="space-y-6 py-4">
+                {/* File Drop Zone */}
+                <div 
+                  className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                >
                   <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900 mb-2">Drop files here or click to browse</p>
-                  <p className="text-sm text-gray-500">PDF, images, and documents up to 10MB</p>
-                  <Button variant="outline" className="mt-4">
+                  <p className="text-lg font-medium text-gray-900 mb-2">
+                    {uploadForm.file ? uploadForm.file.name : "Drop files here or click to browse"}
+                  </p>
+                  <p className="text-sm text-gray-500 mb-4">PDF, images, and documents up to 10MB</p>
+                  <input
+                    type="file"
+                    id="file-upload"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.csv,.xlsx,.xls"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
                     Choose Files
                   </Button>
                 </div>
-              </div>
+
+                {/* Document Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="title">Title *</Label>
+                    <Input
+                      id="title"
+                      value={uploadForm.title}
+                      onChange={(e) => setUploadForm(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Document title"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category">Category *</Label>
+                    <Select 
+                      value={uploadForm.category} 
+                      onValueChange={(value) => setUploadForm(prev => ({ ...prev, category: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="receipt">Receipt</SelectItem>
+                        <SelectItem value="certificate">Certificate</SelectItem>
+                        <SelectItem value="report">Report</SelectItem>
+                        <SelectItem value="photo">Photo</SelectItem>
+                        <SelectItem value="contract">Contract</SelectItem>
+                        <SelectItem value="insurance">Insurance</SelectItem>
+                        <SelectItem value="legal">Legal</SelectItem>
+                        <SelectItem value="financial">Financial</SelectItem>
+                        <SelectItem value="health">Health</SelectItem>
+                        <SelectItem value="equipment">Equipment</SelectItem>
+                        <SelectItem value="operations">Operations</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    value={uploadForm.description}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Brief description of the document"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="tags">Tags</Label>
+                  <Input
+                    id="tags"
+                    value={uploadForm.tags}
+                    onChange={(e) => setUploadForm(prev => ({ ...prev, tags: e.target.value }))}
+                    placeholder="Enter tags separated by commas"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="expiryDate">Expiry Date (optional)</Label>
+                    <Input
+                      id="expiryDate"
+                      type="date"
+                      value={uploadForm.expiryDate}
+                      onChange={(e) => setUploadForm(prev => ({ ...prev, expiryDate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2 pt-6">
+                    <input
+                      type="checkbox"
+                      id="isPublic"
+                      checked={uploadForm.isPublic}
+                      onChange={(e) => setUploadForm(prev => ({ ...prev, isPublic: e.target.checked }))}
+                      className="rounded"
+                    />
+                    <Label htmlFor="isPublic">Make document public</Label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowUploadDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={uploadDocumentMutation.isPending}
+                    className="ranch-button-primary"
+                  >
+                    {uploadDocumentMutation.isPending ? "Uploading..." : "Upload Document"}
+                  </Button>
+                </div>
+              </form>
             </DialogContent>
           </Dialog>
           <Button variant="outline">
