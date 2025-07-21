@@ -19,10 +19,62 @@ import {
   insertUserNotificationSettingsSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs/promises";
+
+// Configure multer for file uploads
+const storage_multer = multer.diskStorage({
+  destination: async function (req, file, cb) {
+    const uploadDir = 'uploads';
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+    } catch (error) {
+      // Directory already exists or error creating it
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Generate unique filename with timestamp
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage_multer,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow specific file types
+    const allowedTypes = /pdf|doc|docx|xls|xlsx|jpg|jpeg|png|txt|csv/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
+
+  // Serve uploaded files
+  app.use('/uploads', isAuthenticated, (req: any, res, next) => {
+    // Add security headers for file downloads
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    next();
+  });
+  
+  // Static file serving for uploads
+  const express = require('express');
+  app.use('/uploads', express.static('uploads'));
 
   // Auth routes
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
@@ -458,14 +510,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/documents", isAuthenticated, async (req: any, res) => {
+  app.post("/api/documents", isAuthenticated, upload.single('file'), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const documentData = insertDocumentSchema.parse({ ...req.body, userId });
-      const document = await storage.createDocument(documentData);
+      
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // Parse tags if provided
+      const tags = req.body.tags ? req.body.tags.split(',').map((tag: string) => tag.trim()).filter(Boolean) : [];
+      
+      const documentData = {
+        userId,
+        title: req.body.title,
+        category: req.body.category,
+        description: req.body.description || '',
+        fileUrl: `/uploads/${req.file.filename}`,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+        tags,
+        isPublic: req.body.isPublic === 'true',
+        expiryDate: req.body.expiryDate || null,
+        relatedEntityType: req.body.relatedEntityType || null,
+        relatedEntityId: req.body.relatedEntityId ? parseInt(req.body.relatedEntityId) : null,
+      };
+
+      const validatedData = insertDocumentSchema.parse(documentData);
+      const document = await storage.createDocument(validatedData);
       res.status(201).json(document);
     } catch (error) {
       console.error("Error creating document:", error);
+      // Clean up uploaded file if document creation fails
+      if (req.file) {
+        try {
+          await fs.unlink(req.file.path);
+        } catch (unlinkError) {
+          console.error("Error deleting uploaded file:", unlinkError);
+        }
+      }
       res.status(500).json({ message: "Failed to create document" });
     }
   });

@@ -118,6 +118,8 @@ export default function Documents() {
     tags: "",
     expiryDate: "",
     isPublic: false,
+    relatedEntityType: "",
+    relatedEntityId: "",
     file: null as File | null
   });
   const [dragActive, setDragActive] = useState(false);
@@ -125,6 +127,16 @@ export default function Documents() {
   // Queries
   const { data: documents = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["/api/documents"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: animals = [] } = useQuery({
+    queryKey: ["/api/animals"],
+    enabled: isAuthenticated,
+  });
+
+  const { data: equipment = [] } = useQuery({
+    queryKey: ["/api/equipment"],
     enabled: isAuthenticated,
   });
 
@@ -141,11 +153,11 @@ export default function Documents() {
 
   // Mutations
   const uploadDocumentMutation = useMutation({
-    mutationFn: async (documentData: any) => {
+    mutationFn: async (formData: FormData) => {
       return await apiRequest("/api/documents", {
         method: "POST",
-        body: JSON.stringify(documentData),
-        headers: { "Content-Type": "application/json" }
+        body: formData,
+        // Don't set Content-Type header - let browser set it with boundary for multipart/form-data
       });
     },
     onSuccess: () => {
@@ -159,6 +171,8 @@ export default function Documents() {
         tags: "",
         expiryDate: "",
         isPublic: false,
+        relatedEntityType: "",
+        relatedEntityId: "",
         file: null
       });
       toast({ title: "Success", description: "Document uploaded successfully" });
@@ -301,21 +315,24 @@ export default function Documents() {
       return;
     }
 
-    // Simulate file upload - in a real app, you'd upload to a file storage service
-    const documentData = {
-      title: uploadForm.title,
-      category: uploadForm.category,
-      description: uploadForm.description,
-      fileUrl: `/uploads/${uploadForm.file.name}`, // Mock file URL
-      fileName: uploadForm.file.name,
-      fileSize: uploadForm.file.size,
-      mimeType: uploadForm.file.type,
-      tags: uploadForm.tags ? uploadForm.tags.split(',').map(tag => tag.trim()) : [],
-      isPublic: uploadForm.isPublic,
-      expiryDate: uploadForm.expiryDate || null
-    };
+    const formData = new FormData();
+    formData.append('file', uploadForm.file);
+    formData.append('title', uploadForm.title);
+    formData.append('category', uploadForm.category);
+    formData.append('description', uploadForm.description);
+    formData.append('tags', uploadForm.tags);
+    formData.append('isPublic', uploadForm.isPublic.toString());
+    if (uploadForm.expiryDate) {
+      formData.append('expiryDate', uploadForm.expiryDate);
+    }
+    if (uploadForm.relatedEntityType) {
+      formData.append('relatedEntityType', uploadForm.relatedEntityType);
+    }
+    if (uploadForm.relatedEntityId) {
+      formData.append('relatedEntityId', uploadForm.relatedEntityId);
+    }
 
-    uploadDocumentMutation.mutate(documentData);
+    uploadDocumentMutation.mutate(formData);
   };
 
   if (!isAuthenticated) {
@@ -452,6 +469,58 @@ export default function Documents() {
                     />
                     <Label htmlFor="isPublic">Make document public</Label>
                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="relatedEntityType">Related To (optional)</Label>
+                    <Select 
+                      value={uploadForm.relatedEntityType} 
+                      onValueChange={(value) => setUploadForm(prev => ({ 
+                        ...prev, 
+                        relatedEntityType: value,
+                        relatedEntityId: "" // Reset related ID when type changes
+                      }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="animal">Animal</SelectItem>
+                        <SelectItem value="equipment">Equipment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {uploadForm.relatedEntityType && (
+                    <div>
+                      <Label htmlFor="relatedEntityId">
+                        Select {uploadForm.relatedEntityType === 'animal' ? 'Animal' : 'Equipment'}
+                      </Label>
+                      <Select 
+                        value={uploadForm.relatedEntityId} 
+                        onValueChange={(value) => setUploadForm(prev => ({ ...prev, relatedEntityId: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={`Select ${uploadForm.relatedEntityType}`} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uploadForm.relatedEntityType === 'animal' ? 
+                            animals.map((animal: any) => (
+                              <SelectItem key={animal.id} value={animal.id.toString()}>
+                                {animal.tagId} - {animal.name || animal.breed}
+                              </SelectItem>
+                            )) :
+                            equipment.map((item: any) => (
+                              <SelectItem key={item.id} value={item.id.toString()}>
+                                {item.name} - {item.type}
+                              </SelectItem>
+                            ))
+                          }
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
