@@ -1,7 +1,9 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Tractor, CloudSun, ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tractor, CloudSun, ChevronDown, Settings, User, Shield } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +15,7 @@ import {
 
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
+  const [location, setLocation] = useLocation();
 
   if (!isAuthenticated) {
     return null;
@@ -51,10 +54,47 @@ export default function Header() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex items-center space-x-2">
+                  <span>My Account</span>
+                  {user?.role === 'admin' && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Admin
+                    </Badge>
+                  )}
+                  {user?.role === 'manager' && (
+                    <Badge variant="outline" className="text-xs">
+                      Manager
+                    </Badge>
+                  )}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer flex items-center space-x-2"
+                  onClick={() => setLocation('/profile')}
+                >
+                  <User className="h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="cursor-pointer flex items-center space-x-2"
+                  onClick={() => setLocation('/profile?tab=settings')}
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+                {user?.role === 'admin' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="cursor-pointer flex items-center space-x-2"
+                      onClick={() => setLocation('/admin')}
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="text-red-600 cursor-pointer"

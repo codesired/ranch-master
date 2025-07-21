@@ -36,7 +36,7 @@ export const users = pgTable("users", {
   phone: varchar("phone"),
   address: text("address"),
   bio: text("bio"),
-  role: varchar("role").default("user").notNull(), // user, admin, manager
+  role: varchar("role").default("user").notNull(), // user, admin, manager, employee, viewer
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -64,10 +64,20 @@ export const animals = pgTable("animals", {
   breed: varchar("breed"),
   gender: varchar("gender").notNull(), // male, female
   birthDate: date("birth_date"),
-  weight: varchar("weight"),
+  currentWeight: decimal("current_weight", { precision: 8, scale: 2 }),
+  birthWeight: decimal("birth_weight", { precision: 8, scale: 2 }),
   color: varchar("color"),
   location: varchar("location"),
-  status: varchar("status").default("active").notNull(), // active, sold, deceased
+  status: varchar("status").default("active").notNull(), // active, sold, deceased, quarantine
+  purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }),
+  purchaseDate: date("purchase_date"),
+  salePrice: decimal("sale_price", { precision: 10, scale: 2 }),
+  saleDate: date("sale_date"),
+  motherId: integer("mother_id").references(() => animals.id),
+  fatherId: integer("father_id").references(() => animals.id),
+  geneticInfo: text("genetic_info"),
+  registrationNumber: varchar("registration_number"),
+  microchipId: varchar("microchip_id"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -78,13 +88,26 @@ export const healthRecords = pgTable("health_records", {
   id: serial("id").primaryKey(),
   animalId: integer("animal_id").notNull().references(() => animals.id),
   userId: varchar("user_id").notNull().references(() => users.id),
-  recordType: varchar("record_type").notNull(), // vaccination, treatment, checkup
+  recordType: varchar("record_type").notNull(), // vaccination, treatment, checkup, deworming, test
   description: text("description").notNull(),
+  performedBy: varchar("performed_by"), // vet name
+  veterinarianLicense: varchar("veterinarian_license"),
   date: date("date").notNull(),
-  veterinarian: varchar("veterinarian"),
-  cost: decimal("cost", { precision: 10, scale: 2 }),
+  cost: decimal("cost", { precision: 8, scale: 2 }),
   nextDueDate: date("next_due_date"),
+  medicationUsed: varchar("medication_used"),
+  dosage: varchar("dosage"),
+  batchNumber: varchar("batch_number"),
+  temperature: decimal("temperature", { precision: 4, scale: 1 }),
+  weight: decimal("weight", { precision: 8, scale: 2 }),
+  symptoms: text("symptoms"),
+  diagnosis: text("diagnosis"),
+  treatment: text("treatment"),
+  followUpRequired: boolean("follow_up_required").default(false),
+  attachments: text("attachments").array(),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Breeding records
@@ -202,19 +225,24 @@ export const journalEntries = pgTable("journal_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Documents
+// Documents with enhanced features
 export const documents = pgTable("documents", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id),
   title: varchar("title").notNull(),
-  category: varchar("category").notNull(), // receipt, certificate, report, photo
+  category: varchar("category").notNull(), // receipt, certificate, report, photo, contract, insurance
   description: text("description"),
   fileUrl: varchar("file_url").notNull(),
   fileName: varchar("file_name").notNull(),
   fileSize: integer("file_size"),
   mimeType: varchar("mime_type"),
-  relatedId: integer("related_id"), // can reference animal, equipment, etc.
-  relatedType: varchar("related_type"), // animal, equipment, transaction, etc.
+  tags: text("tags").array(),
+  isPublic: boolean("is_public").default(false),
+  expiryDate: date("expiry_date"),
+  reminderDate: date("reminder_date"),
+  relatedEntityType: varchar("related_entity_type"), // animal, equipment, transaction
+  relatedEntityId: integer("related_entity_id"),
+  uploadedBy: varchar("uploaded_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

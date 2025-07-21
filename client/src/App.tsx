@@ -15,6 +15,7 @@ import Documents from "@/pages/documents";
 import Reports from "@/pages/reports";
 import Profile from "@/pages/profile";
 import Manual from "@/pages/manual";
+import Admin from "@/pages/admin";
 import Header from "@/components/layout/header";
 import Navigation from "@/components/layout/navigation";
 import MobileNav from "@/components/layout/mobile-nav";
@@ -52,6 +53,7 @@ function Router() {
                 <Route path="/documents" component={Documents} />
                 <Route path="/reports" component={Reports} />
                 <Route path="/profile" component={Profile} />
+                <Route path="/admin" component={Admin} />
                 <Route path="/manual" component={Manual} />
                 <Route component={NotFound} />
               </Switch>

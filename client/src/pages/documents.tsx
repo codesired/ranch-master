@@ -1,8 +1,27 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -12,179 +31,594 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { FileText, Download, Eye, Plus, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { DocumentForm } from "@/components/forms/document-form";
-import { useAuth } from "@/hooks/useAuth";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Plus,
+  Search,
+  Filter,
+  FileText,
+  Image,
+  File,
+  Download,
+  Eye,
+  Edit,
+  Trash2,
+  Upload,
+  Calendar,
+  Tag,
+  Share2,
+  Archive,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  MoreVertical,
+  FolderOpen,
+  Camera,
+  Receipt,
+  Shield,
+  Users,
+  Building,
+  Truck,
+} from "lucide-react";
+import LoadingSpinner from "@/components/shared/loading-spinner";
+import { format } from "date-fns";
+
+interface Document {
+  id: number;
+  title: string;
+  category: string;
+  description?: string;
+  fileUrl: string;
+  fileName: string;
+  fileSize?: number;
+  mimeType?: string;
+  tags?: string[];
+  isPublic: boolean;
+  expiryDate?: string;
+  reminderDate?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: number;
+  uploadedBy?: string;
+  createdAt: string;
+}
+
+interface DocumentStats {
+  totalDocuments: number;
+  recentUploads: number;
+  expiringSoon: number;
+  storageUsed: number;
+  categoriesCount: number;
+}
 
 export default function Documents() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterTag, setFilterTag] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
 
-  const { data: documents, isLoading } = useQuery({
+  // Queries
+  const { data: documents = [], isLoading: documentsLoading } = useQuery({
     queryKey: ["/api/documents"],
-    queryFn: () => fetch("/api/documents").then((res) => res.json()),
-    enabled: !!user,
+    enabled: isAuthenticated,
   });
 
-  const filteredDocuments =
-    documents?.filter(
-      (doc: any) =>
-        doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.tags?.toLowerCase().includes(searchTerm.toLowerCase()),
-    ) || [];
+  const { data: documentStats = {
+    totalDocuments: 0,
+    recentUploads: 0,
+    expiringSoon: 0,
+    storageUsed: 0,
+    categoriesCount: 0,
+  }, isLoading: statsLoading } = useQuery({
+    queryKey: ["/api/documents/stats"],
+    enabled: isAuthenticated,
+  });
 
-  const getTypeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      health_record: "bg-red-100 text-red-800",
-      breeding_record: "bg-blue-100 text-blue-800",
-      financial_document: "bg-green-100 text-green-800",
-      insurance: "bg-purple-100 text-purple-800",
-      permit: "bg-yellow-100 text-yellow-800",
-      contract: "bg-orange-100 text-orange-800",
-      invoice: "bg-pink-100 text-pink-800",
-      manual: "bg-gray-100 text-gray-800",
-      other: "bg-slate-100 text-slate-800",
-    };
-    return colors[type] || colors.other;
+  // Mutations
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/documents/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/documents/stats"] });
+      toast({ title: "Success", description: "Document deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Enhanced filtering
+  const filteredDocuments = documents.filter((doc: Document) => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.fileName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = filterCategory === "all" || doc.category === filterCategory;
+    const matchesTag = filterTag === "all" || doc.tags?.includes(filterTag);
+    
+    return matchesSearch && matchesCategory && matchesTag;
+  });
+
+  // Get unique categories and tags
+  const categories = [...new Set(documents.map((doc: Document) => doc.category))];
+  const allTags = [...new Set(documents.flatMap((doc: Document) => doc.tags || []))];
+
+  const getCategoryIcon = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'receipt': return Receipt;
+      case 'certificate': return Shield;
+      case 'report': return FileText;
+      case 'photo': return Camera;
+      case 'contract': return Users;
+      case 'insurance': return Building;
+      default: return File;
+    }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  const getCategoryColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case 'receipt': return 'bg-green-100 text-green-800';
+      case 'certificate': return 'bg-blue-100 text-blue-800';
+      case 'report': return 'bg-purple-100 text-purple-800';
+      case 'photo': return 'bg-yellow-100 text-yellow-800';
+      case 'contract': return 'bg-red-100 text-red-800';
+      case 'insurance': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "-";
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const isExpiring = (doc: Document) => {
+    if (!doc.expiryDate) return false;
+    const expiry = new Date(doc.expiryDate);
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    return expiry <= thirtyDaysFromNow;
+  };
+
+  const handleDownload = (doc: Document) => {
+    window.open(doc.fileUrl, '_blank');
+  };
+
+  const handleShare = (doc: Document) => {
+    if (navigator.share) {
+      navigator.share({
+        title: doc.title,
+        text: doc.description,
+        url: doc.fileUrl,
+      });
+    } else {
+      navigator.clipboard.writeText(doc.fileUrl);
+      toast({ title: "Success", description: "Document link copied to clipboard" });
+    }
+  };
+
+  if (!isAuthenticated) {
+    return <div>Please log in to view documents.</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-dark-green">
-            Document Management
-          </h1>
-          <p className="text-gray-600">
-            Organize and access important ranch documents
-          </p>
+          <h1 className="text-3xl font-bold text-dark-green mb-2">Document Management</h1>
+          <p className="text-gray-600">Organize, store, and manage all your ranch documents</p>
         </div>
-        <Dialog open={showForm} onOpenChange={setShowForm}>
-          <DialogTrigger asChild>
-            <Button className="bg-harvest-orange hover:bg-harvest-orange/90">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Document
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add New Document</DialogTitle>
-            </DialogHeader>
-            <DocumentForm onSuccess={() => setShowForm(false)} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex space-x-3">
+          <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+            <DialogTrigger asChild>
+              <Button className="ranch-button-primary">
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Upload New Document</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-900 mb-2">Drop files here or click to browse</p>
+                  <p className="text-sm text-gray-500">PDF, images, and documents up to 10MB</p>
+                  <Button variant="outline" className="mt-4">
+                    Choose Files
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            Browse
+          </Button>
+        </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card className="ranch-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
+            <FileText className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              {documentsLoading ? "..." : documentStats.totalDocuments}
+            </div>
+            <p className="text-xs text-gray-600">
+              {documentStats.categoriesCount} categories
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="ranch-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recent Uploads</CardTitle>
+            <Upload className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              {statsLoading ? "..." : documentStats.recentUploads}
+            </div>
+            <p className="text-xs text-gray-600">
+              This week
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="ranch-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Expiring Soon</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {statsLoading ? "..." : documentStats.expiringSoon}
+            </div>
+            <p className="text-xs text-gray-600">
+              Next 30 days
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="ranch-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Storage Used</CardTitle>
+            <Archive className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {statsLoading ? "..." : `${documentStats.storageUsed}%`}
+            </div>
+            <p className="text-xs text-gray-600">
+              Of available space
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="ranch-card">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Public Docs</CardTitle>
+            <Share2 className="h-4 w-4 text-indigo-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-indigo-600">
+              {documentsLoading ? "..." : documents.filter((d: Document) => d.isPublic).length}
+            </div>
+            <p className="text-xs text-gray-600">
+              Shared documents
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content */}
       <Card className="ranch-card">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Documents ({filteredDocuments.length})
-            </CardTitle>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-dark-green">Document Library</CardTitle>
+              <CardDescription>Manage and organize your documents</CardDescription>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              >
+                List
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                Grid
+              </Button>
+            </div>
+          </div>
+          
+          {/* Enhanced Filters */}
+          <div className="flex flex-wrap gap-4 pt-4">
+            <div className="flex items-center space-x-2">
+              <Search className="h-4 w-4" />
               <Input
                 placeholder="Search documents..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
+                className="w-64"
               />
             </div>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterTag} onValueChange={setFilterTag}>
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Tags" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tags</SelectItem>
+                {allTags.map((tag) => (
+                  <SelectItem key={tag} value={tag}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading documents...</div>
+          {documentsLoading ? (
+            <LoadingSpinner />
           ) : filteredDocuments.length > 0 ? (
-            <div className="overflow-x-auto">
+            viewMode === "list" ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Type</TableHead>
+                    <TableHead>Document</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Size</TableHead>
-                    <TableHead>Upload Date</TableHead>
                     <TableHead>Tags</TableHead>
+                    <TableHead>Uploaded</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDocuments.map((document: any) => (
-                    <TableRow key={document.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{document.title}</p>
-                          {document.description && (
-                            <p className="text-sm text-gray-500">
-                              {document.description}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getTypeColor(document.type)}>
-                          {document.type.replace("_", " ").toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{formatFileSize(document.fileSize)}</TableCell>
-                      <TableCell>
-                        {new Date(document.uploadDate).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        {document.tags && (
-                          <div className="flex flex-wrap gap-1">
-                            {document.tags
-                              .split(",")
-                              .map((tag: string, index: number) => (
-                                <Badge
-                                  key={index}
-                                  variant="secondary"
-                                  className="text-xs"
-                                >
-                                  {tag.trim()}
-                                </Badge>
-                              ))}
+                  {filteredDocuments.map((doc: Document) => {
+                    const CategoryIcon = getCategoryIcon(doc.category);
+                    return (
+                      <TableRow key={doc.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-3">
+                            <CategoryIcon className="h-5 w-5 text-gray-500" />
+                            <div>
+                              <div className="font-medium">{doc.title}</div>
+                              <div className="text-sm text-gray-500">{doc.fileName}</div>
+                            </div>
                           </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="ghost">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="ghost">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getCategoryColor(doc.category)}>
+                            {doc.category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{formatFileSize(doc.fileSize)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {doc.tags?.slice(0, 2).map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                            {doc.tags && doc.tags.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{doc.tags.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {format(new Date(doc.createdAt), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {doc.expiryDate ? (
+                            <div className={isExpiring(doc) ? "text-orange-600 font-medium" : ""}>
+                              {format(new Date(doc.expiryDate), 'MMM dd, yyyy')}
+                            </div>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {doc.isPublic && (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                                <Share2 className="h-3 w-3 mr-1" />
+                                Public
+                              </Badge>
+                            )}
+                            {isExpiring(doc) && (
+                              <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Expiring
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShare(doc)}>
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => deleteDocumentMutation.mutate(doc.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredDocuments.map((doc: Document) => {
+                  const CategoryIcon = getCategoryIcon(doc.category);
+                  return (
+                    <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CategoryIcon className="h-8 w-8 text-gray-500" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleShare(doc)}>
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => deleteDocumentMutation.mutate(doc.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg truncate">{doc.title}</CardTitle>
+                          <CardDescription className="text-sm truncate">
+                            {doc.description || doc.fileName}
+                          </CardDescription>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <Badge className={getCategoryColor(doc.category)}>
+                              {doc.category}
+                            </Badge>
+                            <span className="text-sm text-gray-500">
+                              {formatFileSize(doc.fileSize)}
+                            </span>
+                          </div>
+                          
+                          {doc.tags && doc.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {doc.tags.slice(0, 3).map((tag) => (
+                                <Badge key={tag} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <div className="text-sm text-gray-500">
+                            Uploaded {format(new Date(doc.createdAt), 'MMM dd, yyyy')}
+                          </div>
+                          
+                          {isExpiring(doc) && (
+                            <div className="flex items-center text-orange-600 text-sm">
+                              <AlertTriangle className="h-4 w-4 mr-1" />
+                              Expires {format(new Date(doc.expiryDate!), 'MMM dd')}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              {searchTerm
-                ? "No documents match your search."
-                : "No documents found. Add your first document to get started."}
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
+              <p className="text-gray-500 mb-6">
+                {searchTerm || filterCategory !== "all" || filterTag !== "all" 
+                  ? "Try adjusting your search filters"
+                  : "Upload your first document to get started"
+                }
+              </p>
+              {(!searchTerm && filterCategory === "all" && filterTag === "all") && (
+                <Button 
+                  onClick={() => setShowUploadDialog(true)}
+                  className="ranch-button-primary"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
