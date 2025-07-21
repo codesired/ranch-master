@@ -1,3 +1,4 @@
+
 import {
   pgTable,
   text,
@@ -10,243 +11,332 @@ import {
   decimal,
   boolean,
   date,
+  pgEnum,
 } from "drizzle-orm/pg-core";
+import {
+  mysqlTable,
+  text as mysqlText,
+  varchar as mysqlVarchar,
+  timestamp as mysqlTimestamp,
+  json as mysqlJson,
+  index as mysqlIndex,
+  int as mysqlInt,
+  decimal as mysqlDecimal,
+  boolean as mysqlBoolean,
+  date as mysqlDate,
+  mysqlEnum,
+} from "drizzle-orm/mysql-core";
+import {
+  sqliteTable,
+  text as sqliteText,
+  integer as sqliteInt,
+  real as sqliteReal,
+  blob as sqliteBlob,
+  index as sqliteIndex,
+} from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Get database type from environment
+const dbType = (process.env.DATABASE_TYPE || 'postgresql').toLowerCase();
+
+// Database-specific table creators
+const createTable = (name: string, columns: any, tableOptions?: any) => {
+  switch (dbType) {
+    case 'mysql':
+      return mysqlTable(name, columns, tableOptions);
+    case 'sqlite':
+      return sqliteTable(name, columns, tableOptions);
+    default: // postgresql
+      return pgTable(name, columns, tableOptions);
+  }
+};
+
+// Database-specific column types
+const getColumnTypes = () => {
+  switch (dbType) {
+    case 'mysql':
+      return {
+        serial: () => mysqlInt("id").primaryKey().autoincrement(),
+        varchar: (name: string, options?: { length?: number }) => mysqlVarchar(name, { length: options?.length || 255 }),
+        text: (name: string) => mysqlText(name),
+        timestamp: (name: string) => mysqlTimestamp(name, { mode: 'date' }),
+        json: (name: string) => mysqlJson(name),
+        integer: (name: string) => mysqlInt(name),
+        decimal: (name: string, precision = 10, scale = 2) => mysqlDecimal(name, { precision, scale }),
+        boolean: (name: string) => mysqlBoolean(name),
+        date: (name: string) => mysqlDate(name),
+      };
+    case 'sqlite':
+      return {
+        serial: () => sqliteInt("id", { mode: 'number' }).primaryKey({ autoIncrement: true }),
+        varchar: (name: string, options?: { length?: number }) => sqliteText(name),
+        text: (name: string) => sqliteText(name),
+        timestamp: (name: string) => sqliteInt(name, { mode: 'timestamp' }),
+        json: (name: string) => sqliteText(name, { mode: 'json' }),
+        integer: (name: string) => sqliteInt(name, { mode: 'number' }),
+        decimal: (name: string, precision = 10, scale = 2) => sqliteReal(name),
+        boolean: (name: string) => sqliteInt(name, { mode: 'boolean' }),
+        date: (name: string) => sqliteText(name),
+      };
+    default: // postgresql
+      return {
+        serial: () => serial("id"),
+        varchar: (name: string, options?: { length?: number }) => varchar(name, { length: options?.length || 255 }),
+        text: (name: string) => text(name),
+        timestamp: (name: string) => timestamp(name),
+        json: (name: string) => jsonb(name),
+        integer: (name: string) => integer(name),
+        decimal: (name: string, precision = 10, scale = 2) => decimal(name, { precision, scale }),
+        boolean: (name: string) => boolean(name),
+        date: (name: string) => date(name),
+      };
+  }
+};
+
+const col = getColumnTypes();
+
 // Session storage table for Replit Auth
-export const sessions = pgTable(
+export const sessions = createTable(
   "sessions",
   {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
+    sid: col.varchar("sid").primaryKey(),
+    sess: col.json("sess").notNull(),
+    expire: col.timestamp("expire").notNull(),
   },
-  (table) => [index("IDX_session_expire").on(table.expire)],
+  (table: any) => ({
+    expireIdx: dbType === 'sqlite' ? undefined : index("IDX_session_expire").on(table.expire)
+  })
 );
 
 // User storage table for Replit Auth
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  phone: varchar("phone"),
-  address: text("address"),
-  bio: text("bio"),
-  role: varchar("role").default("user").notNull(), // user, admin, manager, employee, viewer
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+export const users = createTable("users", {
+  id: col.varchar("id").primaryKey().notNull(),
+  email: col.varchar("email"),
+  firstName: col.varchar("first_name"),
+  lastName: col.varchar("last_name"),
+  profileImageUrl: col.varchar("profile_image_url"),
+  phone: col.varchar("phone"),
+  address: col.text("address"),
+  bio: col.text("bio"),
+  role: col.varchar("role").default("user").notNull(),
+  isActive: col.boolean("is_active").default(true),
+  lastLogin: col.timestamp("last_login"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
 });
 
-// User notification settings
-export const userNotificationSettings = pgTable("user_notification_settings", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  emailNotifications: boolean("email_notifications").default(true),
-  healthAlerts: boolean("health_alerts").default(true),
-  lowStockAlerts: boolean("low_stock_alerts").default(true),
-  weatherAlerts: boolean("weather_alerts").default(true),
-  maintenanceReminders: boolean("maintenance_reminders").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Animals table
+export const animals = createTable("animals", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  tagId: col.varchar("tag_id").notNull(),
+  name: col.varchar("name"),
+  species: col.varchar("species").notNull(),
+  breed: col.varchar("breed"),
+  gender: col.varchar("gender").notNull(),
+  birthDate: col.date("birth_date"),
+  currentWeight: col.decimal("current_weight", 8, 2),
+  birthWeight: col.decimal("birth_weight", 8, 2),
+  color: col.varchar("color"),
+  location: col.varchar("location"),
+  status: col.varchar("status").default("active").notNull(),
+  purchasePrice: col.decimal("purchase_price", 10, 2),
+  purchaseDate: col.date("purchase_date"),
+  salePrice: col.decimal("sale_price", 10, 2),
+  saleDate: col.date("sale_date"),
+  motherId: col.integer("mother_id"),
+  fatherId: col.integer("father_id"),
+  geneticInfo: col.text("genetic_info"),
+  registrationNumber: col.varchar("registration_number"),
+  microchipId: col.varchar("microchip_id"),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
 });
 
-// Livestock animals
-export const animals = pgTable("animals", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  tagId: varchar("tag_id").notNull().unique(),
-  name: varchar("name"),
-  species: varchar("species").notNull(), // cattle, sheep, goat, etc.
-  breed: varchar("breed"),
-  gender: varchar("gender").notNull(), // male, female
-  birthDate: date("birth_date"),
-  currentWeight: decimal("current_weight", { precision: 8, scale: 2 }),
-  birthWeight: decimal("birth_weight", { precision: 8, scale: 2 }),
-  color: varchar("color"),
-  location: varchar("location"),
-  status: varchar("status").default("active").notNull(), // active, sold, deceased, quarantine
-  purchasePrice: decimal("purchase_price", { precision: 10, scale: 2 }),
-  purchaseDate: date("purchase_date"),
-  salePrice: decimal("sale_price", { precision: 10, scale: 2 }),
-  saleDate: date("sale_date"),
-  motherId: integer("mother_id").references(() => animals.id),
-  fatherId: integer("father_id").references(() => animals.id),
-  geneticInfo: text("genetic_info"),
-  registrationNumber: varchar("registration_number"),
-  microchipId: varchar("microchip_id"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Health records table
+export const healthRecords = createTable("health_records", {
+  id: col.serial().primaryKey(),
+  animalId: col.integer("animal_id").notNull(),
+  userId: col.varchar("user_id").notNull(),
+  type: col.varchar("type").notNull(),
+  description: col.text("description"),
+  date: col.date("date").notNull(),
+  veterinarian: col.varchar("veterinarian"),
+  cost: col.decimal("cost", 10, 2),
+  nextDueDate: col.date("next_due_date"),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
 });
 
-// Health records
-export const healthRecords = pgTable("health_records", {
-  id: serial("id").primaryKey(),
-  animalId: integer("animal_id").notNull().references(() => animals.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  recordType: varchar("record_type").notNull(), // vaccination, treatment, checkup, deworming, test
-  description: text("description").notNull(),
-  performedBy: varchar("performed_by"), // vet name
-  veterinarianLicense: varchar("veterinarian_license"),
-  date: date("date").notNull(),
-  cost: decimal("cost", { precision: 8, scale: 2 }),
-  nextDueDate: date("next_due_date"),
-  medicationUsed: varchar("medication_used"),
-  dosage: varchar("dosage"),
-  batchNumber: varchar("batch_number"),
-  temperature: decimal("temperature", { precision: 4, scale: 1 }),
-  weight: decimal("weight", { precision: 8, scale: 2 }),
-  symptoms: text("symptoms"),
-  diagnosis: text("diagnosis"),
-  treatment: text("treatment"),
-  followUpRequired: boolean("follow_up_required").default(false),
-  attachments: text("attachments").array(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Breeding records table
+export const breedingRecords = createTable("breeding_records", {
+  id: col.serial().primaryKey(),
+  motherId: col.integer("mother_id").notNull(),
+  fatherId: col.integer("father_id"),
+  userId: col.varchar("user_id").notNull(),
+  breedingDate: col.date("breeding_date").notNull(),
+  expectedBirthDate: col.date("expected_birth_date"),
+  actualBirthDate: col.date("actual_birth_date"),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
 });
 
-// Breeding records
-export const breedingRecords = pgTable("breeding_records", {
-  id: serial("id").primaryKey(),
-  motherId: integer("mother_id").notNull().references(() => animals.id),
-  fatherId: integer("father_id").references(() => animals.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  breedingDate: date("breeding_date").notNull(),
-  expectedBirthDate: date("expected_birth_date"),
-  actualBirthDate: date("actual_birth_date"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
+// Transactions table
+export const transactions = createTable("transactions", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  type: col.varchar("type").notNull(),
+  category: col.varchar("category").notNull(),
+  description: col.text("description"),
+  amount: col.decimal("amount", 12, 2).notNull(),
+  date: col.date("date").notNull(),
+  paymentMethod: col.varchar("payment_method"),
+  receiptUrl: col.varchar("receipt_url"),
+  tags: dbType === 'postgresql' ? text("tags").array() : col.text("tags"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
 });
 
-// Financial transactions
-export const transactions = pgTable("transactions", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  type: varchar("type").notNull(), // income, expense
-  category: varchar("category").notNull(),
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  description: text("description").notNull(),
-  date: date("date").notNull(),
-  receiptUrl: varchar("receipt_url"),
-  createdAt: timestamp("created_at").defaultNow(),
+// Inventory table
+export const inventory = createTable("inventory", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  name: col.varchar("name").notNull(),
+  category: col.varchar("category").notNull(),
+  quantity: col.decimal("quantity", 10, 3).notNull(),
+  unit: col.varchar("unit").notNull(),
+  costPerUnit: col.decimal("cost_per_unit", 10, 2),
+  supplier: col.varchar("supplier"),
+  location: col.varchar("location"),
+  expiryDate: col.date("expiry_date"),
+  minThreshold: col.decimal("min_threshold", 10, 3),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
 });
 
-// Inventory items
-export const inventory = pgTable("inventory", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  name: varchar("name").notNull(),
-  category: varchar("category").notNull(), // feed, medicine, supplies
-  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(),
-  unit: varchar("unit").notNull(), // kg, lbs, tons, pieces
-  minThreshold: decimal("min_threshold", { precision: 10, scale: 2 }),
-  location: varchar("location"),
-  cost: decimal("cost", { precision: 10, scale: 2 }),
-  expiryDate: date("expiry_date"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
+// Equipment table
+export const equipment = createTable("equipment", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  name: col.varchar("name").notNull(),
+  type: col.varchar("type").notNull(),
+  model: col.varchar("model"),
+  manufacturer: col.varchar("manufacturer"),
+  serialNumber: col.varchar("serial_number"),
+  purchaseDate: col.date("purchase_date"),
+  purchasePrice: col.decimal("purchase_price", 12, 2),
+  warrantyExpiry: col.date("warranty_expiry"),
+  status: col.varchar("status").default("operational"),
+  location: col.varchar("location"),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
 });
 
-// Equipment
-export const equipment = pgTable("equipment", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  name: varchar("name").notNull(),
-  type: varchar("type").notNull(), // tractor, harvester, irrigation, etc.
-  model: varchar("model"),
-  serialNumber: varchar("serial_number"),
-  purchaseDate: date("purchase_date"),
-  purchasePrice: decimal("purchase_price", { precision: 12, scale: 2 }),
-  status: varchar("status").default("operational").notNull(), // operational, maintenance, repair, retired
-  location: varchar("location"),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Equipment maintenance records
-export const maintenanceRecords = pgTable("maintenance_records", {
-  id: serial("id").primaryKey(),
-  equipmentId: integer("equipment_id").notNull().references(() => equipment.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  type: varchar("type").notNull(), // scheduled, repair, inspection
-  description: text("description").notNull(),
-  date: date("date").notNull(),
-  cost: decimal("cost", { precision: 10, scale: 2 }),
-  nextDueDate: date("next_due_date"),
-  performedBy: varchar("performed_by"),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Budgets
-export const budgets = pgTable("budgets", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  name: varchar("name").notNull(),
-  category: varchar("category").notNull(),
-  budgetType: varchar("budget_type").notNull(), // monthly, yearly, quarterly
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  period: varchar("period").notNull(), // 2024-01, 2024, 2024-Q1
-  alertThreshold: decimal("alert_threshold", { precision: 5, scale: 2 }).default("80.00"), // percentage
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Accounts for double-entry accounting
-export const accounts = pgTable("accounts", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  accountNumber: varchar("account_number").notNull(),
-  name: varchar("name").notNull(),
-  type: varchar("type").notNull(), // asset, liability, equity, revenue, expense
-  subType: varchar("sub_type"), // cash, accounts_receivable, inventory, etc.
-  balance: decimal("balance", { precision: 12, scale: 2 }).default("0.00"),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Journal entries for double-entry accounting
-export const journalEntries = pgTable("journal_entries", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  transactionId: integer("transaction_id").references(() => transactions.id),
-  accountId: integer("account_id").notNull().references(() => accounts.id),
-  entryType: varchar("entry_type").notNull(), // debit, credit
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  description: text("description"),
-  date: date("date").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+// Maintenance records table
+export const maintenanceRecords = createTable("maintenance_records", {
+  id: col.serial().primaryKey(),
+  equipmentId: col.integer("equipment_id").notNull(),
+  userId: col.varchar("user_id").notNull(),
+  type: col.varchar("type").notNull(),
+  description: col.text("description"),
+  date: col.date("date").notNull(),
+  cost: col.decimal("cost", 10, 2),
+  performedBy: col.varchar("performed_by"),
+  nextMaintenanceDate: col.date("next_maintenance_date"),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
 });
 
 // Documents with enhanced features
-export const documents = pgTable("documents", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull().references(() => users.id),
-  title: varchar("title").notNull(),
-  category: varchar("category").notNull(), // receipt, certificate, report, photo, contract, insurance
-  description: text("description"),
-  fileUrl: varchar("file_url").notNull(),
-  fileName: varchar("file_name").notNull(),
-  fileSize: integer("file_size"),
-  mimeType: varchar("mime_type"),
-  tags: text("tags").array(),
-  isPublic: boolean("is_public").default(false),
-  expiryDate: date("expiry_date"),
-  reminderDate: date("reminder_date"),
-  relatedEntityType: varchar("related_entity_type"), // animal, equipment, transaction
-  relatedEntityId: integer("related_entity_id"),
-  uploadedBy: varchar("uploaded_by"),
-  createdAt: timestamp("created_at").defaultNow(),
+export const documents = createTable("documents", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  title: col.varchar("title").notNull(),
+  category: col.varchar("category").notNull(),
+  description: col.text("description"),
+  fileUrl: col.varchar("file_url").notNull(),
+  fileName: col.varchar("file_name").notNull(),
+  fileSize: col.integer("file_size"),
+  mimeType: col.varchar("mime_type"),
+  tags: dbType === 'postgresql' ? text("tags").array() : col.text("tags"),
+  isPublic: col.boolean("is_public").default(false),
+  expiryDate: col.date("expiry_date"),
+  reminderDate: col.date("reminder_date"),
+  relatedEntityType: col.varchar("related_entity_type"),
+  relatedEntityId: col.integer("related_entity_id"),
+  uploadedBy: col.varchar("uploaded_by"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
 });
 
-// Relations
+// Budgets table
+export const budgets = createTable("budgets", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  name: col.varchar("name").notNull(),
+  category: col.varchar("category").notNull(),
+  budgetedAmount: col.decimal("budgeted_amount", 12, 2).notNull(),
+  actualAmount: col.decimal("actual_amount", 12, 2).default("0.00"),
+  period: col.varchar("period").default("monthly"),
+  startDate: col.date("start_date").notNull(),
+  endDate: col.date("end_date").notNull(),
+  isActive: col.boolean("is_active").default(true),
+  notes: col.text("notes"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+});
+
+// Accounts table
+export const accounts = createTable("accounts", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  accountNumber: col.varchar("account_number").notNull(),
+  name: col.varchar("name").notNull(),
+  type: col.varchar("type").notNull(),
+  subType: col.varchar("sub_type"),
+  balance: col.decimal("balance", 12, 2).default("0.00"),
+  isActive: col.boolean("is_active").default(true),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+});
+
+// Journal entries table
+export const journalEntries = createTable("journal_entries", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  entryNumber: col.varchar("entry_number").notNull(),
+  date: col.date("date").notNull(),
+  description: col.text("description").notNull(),
+  reference: col.varchar("reference"),
+  totalDebit: col.decimal("total_debit", 12, 2).notNull(),
+  totalCredit: col.decimal("total_credit", 12, 2).notNull(),
+  status: col.varchar("status").default("draft"),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+});
+
+// User notification settings table
+export const userNotificationSettings = createTable("user_notification_settings", {
+  id: col.serial().primaryKey(),
+  userId: col.varchar("user_id").notNull(),
+  emailNotifications: col.boolean("email_notifications").default(true),
+  pushNotifications: col.boolean("push_notifications").default(true),
+  smsNotifications: col.boolean("sms_notifications").default(false),
+  healthAlerts: col.boolean("health_alerts").default(true),
+  lowStockAlerts: col.boolean("low_stock_alerts").default(true),
+  weatherAlerts: col.boolean("weather_alerts").default(true),
+  maintenanceReminders: col.boolean("maintenance_reminders").default(true),
+  financialAlerts: col.boolean("financial_alerts").default(true),
+  breedingReminders: col.boolean("breeding_reminders").default(true),
+  systemUpdates: col.boolean("system_updates").default(false),
+  createdAt: col.timestamp("created_at").defaultNow ? col.timestamp("created_at").defaultNow() : col.timestamp("created_at"),
+  updatedAt: col.timestamp("updated_at").defaultNow ? col.timestamp("updated_at").defaultNow() : col.timestamp("updated_at"),
+});
+
+// Relations (same for all database types)
 export const usersRelations = relations(users, ({ many }) => ({
   animals: many(animals),
   healthRecords: many(healthRecords),
@@ -305,130 +395,57 @@ export const budgetsRelations = relations(budgets, ({ one }) => ({
   user: one(users, { fields: [budgets.userId], references: [users.id] }),
 }));
 
-export const accountsRelations = relations(accounts, ({ one, many }) => ({
+export const accountsRelations = relations(accounts, ({ one }) => ({
   user: one(users, { fields: [accounts.userId], references: [users.id] }),
-  journalEntries: many(journalEntries),
 }));
 
 export const journalEntriesRelations = relations(journalEntries, ({ one }) => ({
   user: one(users, { fields: [journalEntries.userId], references: [users.id] }),
-  transaction: one(transactions, { fields: [journalEntries.transactionId], references: [transactions.id] }),
-  account: one(accounts, { fields: [journalEntries.accountId], references: [accounts.id] }),
 }));
 
-// Insert schemas
-export const insertAnimalSchema = createInsertSchema(animals).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+export const userNotificationSettingsRelations = relations(userNotificationSettings, ({ one }) => ({
+  user: one(users, { fields: [userNotificationSettings.userId], references: [users.id] }),
+}));
 
-export const insertHealthRecordSchema = createInsertSchema(healthRecords).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertBreedingRecordSchema = createInsertSchema(breedingRecords).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertTransactionSchema = createInsertSchema(transactions).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertInventorySchema = createInsertSchema(inventory).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertEquipmentSchema = createInsertSchema(equipment).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertMaintenanceRecordSchema = createInsertSchema(maintenanceRecords).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertDocumentSchema = createInsertSchema(documents).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertBudgetSchema = createInsertSchema(budgets).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertAccountSchema = createInsertSchema(accounts).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertUserNotificationSettingsSchema = createInsertSchema(userNotificationSettings).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const updateUserProfileSchema = z.object({
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  bio: z.string().optional(),
-});
-
-// Types
+// Type definitions (inferred from tables)
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
-
-export type InsertAnimal = z.infer<typeof insertAnimalSchema>;
+export type InsertAnimal = typeof animals.$inferInsert;
 export type Animal = typeof animals.$inferSelect;
-
-export type InsertHealthRecord = z.infer<typeof insertHealthRecordSchema>;
+export type InsertHealthRecord = typeof healthRecords.$inferInsert;
 export type HealthRecord = typeof healthRecords.$inferSelect;
-
-export type InsertBreedingRecord = z.infer<typeof insertBreedingRecordSchema>;
+export type InsertBreedingRecord = typeof breedingRecords.$inferInsert;
 export type BreedingRecord = typeof breedingRecords.$inferSelect;
-
-export type InsertTransaction = z.infer<typeof insertTransactionSchema>;
+export type InsertTransaction = typeof transactions.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
-
-export type InsertInventory = z.infer<typeof insertInventorySchema>;
+export type InsertInventory = typeof inventory.$inferInsert;
 export type Inventory = typeof inventory.$inferSelect;
-
-export type InsertEquipment = z.infer<typeof insertEquipmentSchema>;
+export type InsertEquipment = typeof equipment.$inferInsert;
 export type Equipment = typeof equipment.$inferSelect;
-
-export type InsertMaintenanceRecord = z.infer<typeof insertMaintenanceRecordSchema>;
+export type InsertMaintenanceRecord = typeof maintenanceRecords.$inferInsert;
 export type MaintenanceRecord = typeof maintenanceRecords.$inferSelect;
-
-export type InsertDocument = z.infer<typeof insertDocumentSchema>;
+export type InsertDocument = typeof documents.$inferInsert;
 export type Document = typeof documents.$inferSelect;
-
-export type InsertBudget = z.infer<typeof insertBudgetSchema>;
+export type InsertBudget = typeof budgets.$inferInsert;
 export type Budget = typeof budgets.$inferSelect;
-
-export type InsertAccount = z.infer<typeof insertAccountSchema>;
+export type InsertAccount = typeof accounts.$inferInsert;
 export type Account = typeof accounts.$inferSelect;
-
-export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
+export type InsertJournalEntry = typeof journalEntries.$inferInsert;
 export type JournalEntry = typeof journalEntries.$inferSelect;
-
-export type InsertUserNotificationSettings = z.infer<typeof insertUserNotificationSettingsSchema>;
+export type InsertUserNotificationSettings = typeof userNotificationSettings.$inferInsert;
 export type UserNotificationSettings = typeof userNotificationSettings.$inferSelect;
+export type UpdateUserProfile = Partial<Pick<User, 'firstName' | 'lastName' | 'phone' | 'address' | 'bio'>>;
 
-export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
+// Form schemas
+export const insertAnimalSchema = createInsertSchema(animals);
+export const insertHealthRecordSchema = createInsertSchema(healthRecords);
+export const insertBreedingRecordSchema = createInsertSchema(breedingRecords);
+export const insertTransactionSchema = createInsertSchema(transactions);
+export const insertInventorySchema = createInsertSchema(inventory);
+export const insertEquipmentSchema = createInsertSchema(equipment);
+export const insertMaintenanceRecordSchema = createInsertSchema(maintenanceRecords);
+export const insertDocumentSchema = createInsertSchema(documents);
+export const insertBudgetSchema = createInsertSchema(budgets);
+export const insertAccountSchema = createInsertSchema(accounts);
+export const insertJournalEntrySchema = createInsertSchema(journalEntries);
+export const insertUserNotificationSettingsSchema = createInsertSchema(userNotificationSettings);
