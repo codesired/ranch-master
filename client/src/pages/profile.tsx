@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -9,12 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Settings, Bell, Shield, Trash2, Save, Download } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { User, Settings, Mail, Phone, MapPin, Calendar, Save, Edit, Camera } from "lucide-react";
 import LoadingSpinner from "@/components/shared/loading-spinner";
+import { format } from "date-fns";
+import { Link } from "wouter";
 
 export default function Profile() {
   const { toast } = useToast();
@@ -29,28 +29,15 @@ export default function Profile() {
     phone: user?.phone || "",
     address: user?.address || "",
     bio: user?.bio || "",
+    company: user?.company || "",
+    website: user?.website || "",
   });
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    healthAlerts: true,
-    lowStockAlerts: true,
-    weatherAlerts: true,
-    maintenanceReminders: true,
-  });
-
-  // Fetch notification settings
-  const { data: notificationData } = useQuery({
-    queryKey: ["/api/notifications/settings"],
+  // Fetch extended profile data
+  const { data: profileInfo } = useQuery({
+    queryKey: ["/api/profile/extended"],
     enabled: isAuthenticated,
   });
-
-  // Update notification settings when data is fetched
-  useEffect(() => {
-    if (notificationData) {
-      setNotificationSettings(notificationData);
-    }
-  }, [notificationData]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -61,33 +48,12 @@ export default function Profile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/profile/extended"] });
       toast({
         title: "Success",
         description: "Profile updated successfully",
       });
       setIsEditing(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const updateNotificationsMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiRequest("/api/notifications/settings", {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Notification settings updated successfully",
-      });
     },
     onError: (error: Error) => {
       toast({
@@ -111,10 +77,12 @@ export default function Profile() {
     updateProfileMutation.mutate(profileData);
   };
 
-  const handleNotificationChange = (key: string, value: boolean) => {
-    const newSettings = { ...notificationSettings, [key]: value };
-    setNotificationSettings(newSettings);
-    updateNotificationsMutation.mutate(newSettings);
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800';
+      case 'manager': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
@@ -122,51 +90,91 @@ export default function Profile() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-dark-green mb-2">Profile & Settings</h1>
-          <p className="text-gray-600">Manage your account settings and preferences</p>
+          <h1 className="text-3xl font-bold text-dark-green mb-2">Profile</h1>
+          <p className="text-gray-600">Manage your personal information and ranch details</p>
+        </div>
+        <div className="flex items-center space-x-4">
+          <Link href="/settings">
+            <Button variant="outline" className="flex items-center space-x-2">
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="profile" className="flex items-center space-x-2">
-            <User className="h-4 w-4" />
-            <span>Profile</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center space-x-2">
-            <Bell className="h-4 w-4" />
-            <span>Notifications</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center space-x-2">
-            <Shield className="h-4 w-4" />
-            <span>Security</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="profile">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Profile Card */}
+        <div className="lg:col-span-1">
           <Card className="ranch-card">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-dark-green">Profile Information</CardTitle>
-                  <CardDescription>Update your personal information and ranch details</CardDescription>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-16 w-16">
+            <CardHeader className="text-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <Avatar className="h-24 w-24">
                     <AvatarImage src={user?.profileImageUrl} alt={user?.firstName} />
-                    <AvatarFallback>
+                    <AvatarFallback className="text-xl">
                       {user?.firstName?.[0]}{user?.lastName?.[0]}
                     </AvatarFallback>
                   </Avatar>
-                  <Button
-                    variant={isEditing ? "outline" : "default"}
-                    onClick={() => setIsEditing(!isEditing)}
-                    className={!isEditing ? "ranch-button-primary" : ""}
+                  <Button 
+                    size="sm" 
+                    className="absolute bottom-0 right-0 rounded-full h-8 w-8 p-0"
+                    variant="outline"
                   >
-                    {isEditing ? "Cancel" : "Edit Profile"}
+                    <Camera className="h-4 w-4" />
                   </Button>
                 </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-semibold text-dark-green">
+                    {user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.email}
+                  </h3>
+                  <p className="text-gray-600 text-sm">{user?.email}</p>
+                  <Badge className={`mt-2 ${getRoleBadgeColor(user?.role || 'user')}`}>
+                    {user?.role || 'User'}
+                  </Badge>
+                </div>
               </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center space-x-3 text-sm text-gray-600">
+                <Calendar className="h-4 w-4" />
+                <span>Joined {user?.createdAt ? format(new Date(user.createdAt), 'MMM yyyy') : 'Recently'}</span>
+              </div>
+              {user?.phone && (
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <Phone className="h-4 w-4" />
+                  <span>{user.phone}</span>
+                </div>
+              )}
+              {user?.address && (
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4" />
+                  <span>{user.address}</span>
+                </div>
+              )}
+              <Separator />
+              <div className="text-center">
+                <Button
+                  variant={isEditing ? "outline" : "default"}
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={!isEditing ? "ranch-button-primary w-full" : "w-full"}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  {isEditing ? "Cancel Editing" : "Edit Profile"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Profile Information */}
+        <div className="lg:col-span-2">
+          <Card className="ranch-card">
+            <CardHeader>
+              <CardTitle className="text-dark-green">Personal Information</CardTitle>
+              <CardDescription>
+                {isEditing ? "Update your personal details" : "Your personal and contact information"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleProfileSubmit} className="space-y-6">
@@ -190,7 +198,7 @@ export default function Profile() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
                       type="email"
@@ -200,16 +208,17 @@ export default function Profile() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Phone Number</Label>
                     <Input
                       id="phone"
                       value={profileData.phone}
                       onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
                       disabled={!isEditing}
+                      placeholder="(555) 123-4567"
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <Input
@@ -217,22 +226,54 @@ export default function Profile() {
                     value={profileData.address}
                     onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
                     disabled={!isEditing}
+                    placeholder="123 Ranch Road, Farm Town, State 12345"
                   />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Ranch/Company Name</Label>
+                    <Input
+                      id="company"
+                      value={profileData.company}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, company: e.target.value }))}
+                      disabled={!isEditing}
+                      placeholder="Green Acres Ranch"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="website">Website</Label>
+                    <Input
+                      id="website"
+                      value={profileData.website}
+                      onChange={(e) => setProfileData(prev => ({ ...prev, website: e.target.value }))}
+                      disabled={!isEditing}
+                      placeholder="https://www.yourranch.com"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
+                  <Label htmlFor="bio">About / Bio</Label>
                   <Textarea
                     id="bio"
                     value={profileData.bio}
                     onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
                     disabled={!isEditing}
-                    placeholder="Tell us about your ranch..."
+                    placeholder="Tell us about yourself and your ranch operations..."
+                    rows={4}
                   />
                 </div>
 
                 {isEditing && (
-                  <div className="flex justify-end">
+                  <div className="flex justify-end space-x-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditing(false)}
+                    >
+                      Cancel
+                    </Button>
                     <Button
                       type="submit"
                       disabled={updateProfileMutation.isPending}
@@ -246,127 +287,36 @@ export default function Profile() {
               </form>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="notifications">
-          <Card className="ranch-card">
+          {/* Activity Summary */}
+          <Card className="ranch-card mt-6">
             <CardHeader>
-              <CardTitle className="text-dark-green">Notification Preferences</CardTitle>
-              <CardDescription>Choose which notifications you'd like to receive</CardDescription>
+              <CardTitle className="text-dark-green">Account Activity</CardTitle>
+              <CardDescription>Summary of your ranch management activities</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="emailNotifications">Email Notifications</Label>
-                  <p className="text-sm text-gray-600">Receive notifications via email</p>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">0</div>
+                  <div className="text-sm text-gray-600">Animals Managed</div>
                 </div>
-                <Switch
-                  id="emailNotifications"
-                  checked={notificationSettings.emailNotifications}
-                  onCheckedChange={(checked) => handleNotificationChange("emailNotifications", checked)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="healthAlerts">Health Alerts</Label>
-                  <p className="text-sm text-gray-600">Get notified about animal health issues</p>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">0</div>
+                  <div className="text-sm text-gray-600">Transactions</div>
                 </div>
-                <Switch
-                  id="healthAlerts"
-                  checked={notificationSettings.healthAlerts}
-                  onCheckedChange={(checked) => handleNotificationChange("healthAlerts", checked)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="lowStockAlerts">Low Stock Alerts</Label>
-                  <p className="text-sm text-gray-600">Get notified when inventory is running low</p>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">0</div>
+                  <div className="text-sm text-gray-600">Documents</div>
                 </div>
-                <Switch
-                  id="lowStockAlerts"
-                  checked={notificationSettings.lowStockAlerts}
-                  onCheckedChange={(checked) => handleNotificationChange("lowStockAlerts", checked)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="weatherAlerts">Weather Alerts</Label>
-                  <p className="text-sm text-gray-600">Get notified about severe weather conditions</p>
-                </div>
-                <Switch
-                  id="weatherAlerts"
-                  checked={notificationSettings.weatherAlerts}
-                  onCheckedChange={(checked) => handleNotificationChange("weatherAlerts", checked)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="maintenanceReminders">Maintenance Reminders</Label>
-                  <p className="text-sm text-gray-600">Get reminded about equipment maintenance</p>
-                </div>
-                <Switch
-                  id="maintenanceReminders"
-                  checked={notificationSettings.maintenanceReminders}
-                  onCheckedChange={(checked) => handleNotificationChange("maintenanceReminders", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security">
-          <Card className="ranch-card">
-            <CardHeader>
-              <CardTitle className="text-dark-green">Security Settings</CardTitle>
-              <CardDescription>Manage your account security and data</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium">Account Security</h3>
-                  <p className="text-sm text-gray-600">Your account is secured with Replit authentication</p>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-medium">Data Export</h3>
-                  <p className="text-sm text-gray-600 mb-4">Download a copy of your ranch data</p>
-                  <Button variant="outline">
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Data
-                  </Button>
-                </div>
-
-                <Separator />
-
-                <div>
-                  <h3 className="text-lg font-medium text-red-600">Danger Zone</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Permanently delete your account and all associated data
-                  </p>
-                  <Button variant="destructive">
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Account
-                  </Button>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">0</div>
+                  <div className="text-sm text-gray-600">Equipment Items</div>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   );
 }
