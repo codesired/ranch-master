@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Settings, Bell, Shield, Trash2, Save } from "lucide-react";
+import { User, Settings, Bell, Shield, Trash2, Save, Download } from "lucide-react";
 import LoadingSpinner from "@/components/shared/loading-spinner";
 
 export default function Profile() {
@@ -26,9 +26,9 @@ export default function Profile() {
     firstName: user?.firstName || "",
     lastName: user?.lastName || "",
     email: user?.email || "",
-    phone: "",
-    address: "",
-    bio: "",
+    phone: user?.phone || "",
+    address: user?.address || "",
+    bio: user?.bio || "",
   });
 
   const [notificationSettings, setNotificationSettings] = useState({
@@ -38,6 +38,19 @@ export default function Profile() {
     weatherAlerts: true,
     maintenanceReminders: true,
   });
+
+  // Fetch notification settings
+  const { data: notificationData } = useQuery({
+    queryKey: ["/api/notifications/settings"],
+    enabled: isAuthenticated,
+  });
+
+  // Update notification settings when data is fetched
+  useEffect(() => {
+    if (notificationData) {
+      setNotificationSettings(notificationData);
+    }
+  }, [notificationData]);
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: any) => {

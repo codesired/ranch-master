@@ -15,6 +15,8 @@ import {
   insertBudgetSchema,
   insertAccountSchema,
   insertJournalEntrySchema,
+  updateUserProfileSchema,
+  insertUserNotificationSettingsSchema,
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -31,6 +33,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Profile routes
+  app.patch("/api/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = updateUserProfileSchema.parse(req.body);
+      const updatedUser = await storage.updateUserProfile(userId, profileData);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Notification settings routes
+  app.get("/api/notifications/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settings = await storage.getUserNotificationSettings(userId);
+      res.json(settings || {
+        emailNotifications: true,
+        healthAlerts: true,
+        lowStockAlerts: true,
+        weatherAlerts: true,
+        maintenanceReminders: true,
+      });
+    } catch (error) {
+      console.error("Error fetching notification settings:", error);
+      res.status(500).json({ message: "Failed to fetch notification settings" });
+    }
+  });
+
+  app.patch("/api/notifications/settings", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const settingsData = insertUserNotificationSettingsSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const settings = await storage.upsertUserNotificationSettings(settingsData);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating notification settings:", error);
+      res.status(500).json({ message: "Failed to update notification settings" });
     }
   });
 
@@ -513,11 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/journal-entries", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { accountId } = req.query;
-      const entries = await storage.getJournalEntries(
-        userId,
-        accountId ? parseInt(accountId as string) : undefined,
-      );
+      const entries = await storage.getJournalEntries(userId);
       res.json(entries);
     } catch (error) {
       console.error("Error fetching journal entries:", error);

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/queryClient";
 import {
   DollarSign,
   TrendingUp,
@@ -31,6 +32,12 @@ import {
   Download,
   Filter,
   Search,
+  Edit,
+  Trash2,
+  AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
+  Receipt,
 } from "lucide-react";
 import { TransactionForm } from "@/components/forms/transaction-form";
 import { BudgetForm } from "@/components/forms/budget-form";
@@ -58,6 +65,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import LoadingSpinner from "@/components/shared/loading-spinner";
 
 interface Transaction {
   id: number;
@@ -104,6 +112,7 @@ interface Account {
 export default function Finances() {
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showTransactionForm, setShowTransactionForm] = useState(false);
   const [showBudgetForm, setShowBudgetForm] = useState(false);
   const [showAccountForm, setShowAccountForm] = useState(false);
@@ -111,186 +120,153 @@ export default function Finances() {
   const [filterType, setFilterType] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
+  // Queries with proper default values and error handling
+  const { data: transactions = [], isLoading: transactionsLoading } = useQuery({
     queryKey: ["/api/transactions"],
     enabled: isAuthenticated,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
-  const { data: financialSummary, isLoading: summaryLoading } = useQuery({
+  const { data: financialSummary = {
+    totalIncome: 0,
+    totalExpenses: 0,
+    netProfit: 0,
+    incomeByCategory: [],
+    expensesByCategory: []
+  }, isLoading: summaryLoading } = useQuery({
     queryKey: ["/api/financial-summary"],
     enabled: isAuthenticated,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-    },
   });
 
-  const { data: budgets, isLoading: budgetsLoading } = useQuery({
+  const { data: budgets = [], isLoading: budgetsLoading } = useQuery({
     queryKey: ["/api/budgets"],
     enabled: isAuthenticated,
   });
 
-  const { data: budgetStatus, isLoading: budgetStatusLoading } = useQuery({
-    queryKey: ["/api/budget-status"],
-    enabled: isAuthenticated,
-  });
-
-  const { data: accounts, isLoading: accountsLoading } = useQuery({
+  const { data: accounts = [], isLoading: accountsLoading } = useQuery({
     queryKey: ["/api/accounts"],
     enabled: isAuthenticated,
   });
 
+  const { data: budgetStatus = [], isLoading: budgetStatusLoading } = useQuery({
+    queryKey: ["/api/budget-status"],
+    enabled: isAuthenticated,
+  });
+
+  // Mutations for CRUD operations
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/transactions/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/financial-summary"] });
+      toast({ title: "Success", description: "Transaction deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteBudgetMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/budgets/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
+      toast({ title: "Success", description: "Budget deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest(`/api/accounts/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      toast({ title: "Success", description: "Account deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   if (!isAuthenticated) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card className="ranch-card">
-          <CardContent className="text-center py-8">
-            <h2 className="text-2xl font-bold mb-4">Access Restricted</h2>
-            <p className="text-muted-foreground mb-4">
-              You need to be logged in to view financial information.
-            </p>
-            <Button onClick={() => (window.location.href = "/api/login")}>
-              Login to Continue
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <div>Please log in to view finances.</div>;
   }
 
-  if (transactionsLoading || summaryLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Enhanced filtering logic
+  const filteredTransactions = transactions.filter((transaction: Transaction) => {
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === "all" || transaction.type === filterType;
+    const matchesCategory = filterCategory === "all" || transaction.category === filterCategory;
+    const matchesDateRange = !dateRange.start || !dateRange.end || 
+                            (transaction.date >= dateRange.start && transaction.date <= dateRange.end);
+    
+    return matchesSearch && matchesType && matchesCategory && matchesDateRange;
+  });
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
+  // Calculate enhanced statistics
+  const totalTransactions = transactions.length;
+  const recentTransactions = transactions.slice(0, 5);
+  const avgTransactionAmount = totalTransactions > 0 
+    ? transactions.reduce((sum: number, t: Transaction) => sum + t.amount, 0) / totalTransactions 
+    : 0;
+
+  // Get unique categories for filter dropdown
+  const uniqueCategories = [...new Set(transactions.map((t: Transaction) => t.category))];
+
+  const handleTransactionSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/financial-summary"] });
+    setShowTransactionForm(false);
+    toast({ title: "Success", description: "Transaction saved successfully" });
   };
 
-  // Filter transactions based on search and filters
-  const filteredTransactions =
-    transactions?.filter((transaction: Transaction) => {
-      const matchesSearch =
-        transaction.description
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        transaction.category.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesType =
-        filterType === "all" || transaction.type === filterType;
-      const matchesCategory =
-        filterCategory === "all" || transaction.category === filterCategory;
-      const matchesDateRange =
-        (!dateRange.start || transaction.date >= dateRange.start) &&
-        (!dateRange.end || transaction.date <= dateRange.end);
-
-      return (
-        matchesSearch && matchesType && matchesCategory && matchesDateRange
-      );
-    }) || [];
-
-  // Get unique categories for filter
-  const categories = [
-    ...new Set(transactions?.map((t: Transaction) => t.category) || []),
-  ];
-
-  // Calculate financial ratios
-  const calculateRatios = () => {
-    if (!financialSummary) return {};
-
-    const { totalIncome, totalExpenses, netProfit } = financialSummary;
-    const totalAssets =
-      accounts?.reduce(
-        (sum: number, acc: Account) => sum + (acc.balance || 0),
-        0,
-      ) || 0;
-
-    return {
-      profitMargin:
-        totalIncome > 0 ? ((netProfit / totalIncome) * 100).toFixed(2) : "0.00",
-      expenseRatio:
-        totalIncome > 0
-          ? ((totalExpenses / totalIncome) * 100).toFixed(2)
-          : "0.00",
-      roi:
-        totalAssets > 0 ? ((netProfit / totalAssets) * 100).toFixed(2) : "0.00",
-      breakEvenPoint:
-        totalExpenses > 0
-          ? (
-              (totalExpenses / (totalIncome - totalExpenses || 1)) *
-              100
-            ).toFixed(2)
-          : "0.00",
-    };
+  const handleBudgetSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/budgets"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/budget-status"] });
+    setShowBudgetForm(false);
+    toast({ title: "Success", description: "Budget saved successfully" });
   };
 
-  const ratios = calculateRatios();
+  const handleAccountSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+    setShowAccountForm(false);
+    toast({ title: "Success", description: "Account saved successfully" });
+  };
 
-  // Export functions
-  const exportToCSV = (data: any[], filename: string) => {
-    if (!data || data.length === 0) return;
+  const formatCurrency = (amount: number) => 
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
-    const headers = Object.keys(data[0]).join(",");
-    const rows = data.map((row) => Object.values(row).join(","));
-    const csv = [headers, ...rows].join("\n");
+  const getTransactionIcon = (type: string) => 
+    type === 'income' ? <TrendingUp className="h-4 w-4 text-green-600" /> : 
+                       <TrendingDown className="h-4 w-4 text-red-600" />;
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const getBudgetStatusColor = (spent: number, budget: number) => {
+    const percentage = (spent / budget) * 100;
+    if (percentage >= 90) return "text-red-600";
+    if (percentage >= 70) return "text-yellow-600";
+    return "text-green-600";
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-farm-green">
-          Financial Management
-        </h1>
-        <div className="flex gap-2">
-          <Dialog
-            open={showTransactionForm}
-            onOpenChange={setShowTransactionForm}
-          >
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-dark-green mb-2">Financial Management</h1>
+          <p className="text-gray-600">Track income, expenses, budgets, and accounts</p>
+        </div>
+        <div className="flex space-x-3">
+          <Dialog open={showTransactionForm} onOpenChange={setShowTransactionForm}>
             <DialogTrigger asChild>
-              <Button className="farm-button">
+              <Button className="ranch-button-primary">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Transaction
               </Button>
@@ -299,46 +275,14 @@ export default function Finances() {
               <DialogHeader>
                 <DialogTitle>Add New Transaction</DialogTitle>
               </DialogHeader>
-              <TransactionForm
-                onSuccess={() => setShowTransactionForm(false)}
-              />
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={showBudgetForm} onOpenChange={setShowBudgetForm}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Target className="h-4 w-4 mr-2" />
-                Create Budget
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Budget</DialogTitle>
-              </DialogHeader>
-              <BudgetForm onSuccess={() => setShowBudgetForm(false)} />
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={showAccountForm} onOpenChange={setShowAccountForm}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <CreditCard className="h-4 w-4 mr-2" />
-                Add Account
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Add New Account</DialogTitle>
-              </DialogHeader>
-              <AccountForm onSuccess={() => setShowAccountForm(false)} />
+              <TransactionForm onSuccess={handleTransactionSuccess} />
             </DialogContent>
           </Dialog>
         </div>
       </div>
 
       {/* Financial Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="ranch-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Income</CardTitle>
@@ -346,814 +290,401 @@ export default function Finances() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(financialSummary?.totalIncome || 0)}
+              {summaryLoading ? "..." : formatCurrency(financialSummary.totalIncome)}
             </div>
-            <p className="text-xs text-green-600">+12.5% from last period</p>
+            <p className="text-xs text-gray-600">
+              This month
+            </p>
           </CardContent>
         </Card>
 
         <Card className="ranch-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Expenses
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(financialSummary?.totalExpenses || 0)}
+              {summaryLoading ? "..." : formatCurrency(financialSummary.totalExpenses)}
             </div>
-            <p className="text-xs text-red-600">+8.2% from last period</p>
+            <p className="text-xs text-gray-600">
+              This month
+            </p>
           </CardContent>
         </Card>
 
         <Card className="ranch-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-            <DollarSign className="h-4 w-4 text-farm-green" />
+            <DollarSign className={`h-4 w-4 ${financialSummary.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-farm-green">
-              {formatCurrency(financialSummary?.netProfit || 0)}
+            <div className={`text-2xl font-bold ${financialSummary.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {summaryLoading ? "..." : formatCurrency(financialSummary.netProfit)}
             </div>
-            <p className="text-xs text-farm-green">
-              Margin: {ratios.profitMargin}%
+            <p className="text-xs text-gray-600">
+              {financialSummary.netProfit >= 0 ? 'Profit' : 'Loss'} this month
             </p>
           </CardContent>
         </Card>
 
         <Card className="ranch-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Account Balance
-            </CardTitle>
-            <Wallet className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+            <BarChart3 className="h-4 w-4 text-farm-green" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
-              {formatCurrency(
-                accounts?.reduce(
-                  (sum: number, acc: Account) => sum + (acc.balance || 0),
-                  0,
-                ) || 0,
-              )}
+            <div className="text-2xl font-bold text-dark-green">
+              {transactionsLoading ? "..." : totalTransactions}
             </div>
-            <p className="text-xs text-blue-600">
-              Across {accounts?.length || 0} accounts
+            <p className="text-xs text-gray-600">
+              Average: {formatCurrency(avgTransactionAmount)}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="budgets">Budgets</TabsTrigger>
-          <TabsTrigger value="accounts">Accounts</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="forecasting">Forecasting</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+      {/* Tabs for different sections */}
+      <Tabs defaultValue="transactions" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="transactions" className="flex items-center space-x-2">
+            <Receipt className="h-4 w-4" />
+            <span>Transactions</span>
+          </TabsTrigger>
+          <TabsTrigger value="budgets" className="flex items-center space-x-2">
+            <Target className="h-4 w-4" />
+            <span>Budgets</span>
+          </TabsTrigger>
+          <TabsTrigger value="accounts" className="flex items-center space-x-2">
+            <CreditCard className="h-4 w-4" />
+            <span>Accounts</span>
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="flex items-center space-x-2">
+            <FileText className="h-4 w-4" />
+            <span>Reports</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Income by Category */}
-            <Card className="ranch-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5" />
-                  Income by Category
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {financialSummary?.incomeByCategory?.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center"
-                    >
-                      <span className="text-sm font-medium">
-                        {item.category}
-                      </span>
-                      <span className="text-green-600 font-bold">
-                        {formatCurrency(item.amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Expenses by Category */}
-            <Card className="ranch-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Expenses by Category
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {financialSummary?.expensesByCategory?.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex justify-between items-center"
-                    >
-                      <span className="text-sm font-medium">
-                        {item.category}
-                      </span>
-                      <span className="text-red-600 font-bold">
-                        {formatCurrency(item.amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Financial Ratios */}
+        {/* Transactions Tab */}
+        <TabsContent value="transactions">
           <Card className="ranch-card">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calculator className="h-5 w-5" />
-                Key Financial Ratios
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {ratios.profitMargin}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Profit Margin
-                  </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-dark-green">Transaction History</CardTitle>
+                  <CardDescription>Track all your income and expenses</CardDescription>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {ratios.expenseRatio}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Expense Ratio
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {ratios.roi}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">ROI</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {ratios.breakEvenPoint}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Break Even
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Transactions */}
-          <Card className="ranch-card">
-            <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>
-                Your latest financial activities
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions?.slice(0, 5).map((transaction: Transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell>
-                        {format(new Date(transaction.date), "MMM dd, yyyy")}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {transaction.description}
-                      </TableCell>
-                      <TableCell>{transaction.category}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            transaction.type === "income"
-                              ? "default"
-                              : "destructive"
-                          }
-                        >
-                          {transaction.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-bold ${
-                          transaction.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {transaction.type === "income" ? "+" : "-"}
-                        {formatCurrency(transaction.amount)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="transactions" className="space-y-6">
-          {/* Filters */}
-          <Card className="ranch-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Transaction Filters
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                <div className="space-y-2">
-                  <Label>Search</Label>
-                  <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search transactions..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select value={filterType} onValueChange={setFilterType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={filterCategory}
-                    onValueChange={setFilterCategory}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Start Date</Label>
-                  <Input
-                    type="date"
-                    value={dateRange.start}
-                    onChange={(e) =>
-                      setDateRange((prev) => ({
-                        ...prev,
-                        start: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>End Date</Label>
-                  <Input
-                    type="date"
-                    value={dateRange.end}
-                    onChange={(e) =>
-                      setDateRange((prev) => ({ ...prev, end: e.target.value }))
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Export</Label>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      exportToCSV(filteredTransactions, "transactions")
-                    }
-                    className="w-full"
-                  >
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm">
                     <Download className="h-4 w-4 mr-2" />
-                    CSV
+                    Export
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="ranch-card">
-            <CardHeader>
-              <CardTitle>
-                All Transactions ({filteredTransactions.length})
-              </CardTitle>
-              <CardDescription>Complete transaction history</CardDescription>
+              
+              {/* Filters */}
+              <div className="flex flex-wrap gap-4 pt-4">
+                <div className="flex items-center space-x-2">
+                  <Search className="h-4 w-4" />
+                  <Input
+                    placeholder="Search transactions..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-64"
+                  />
+                </div>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {uniqueCategories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTransactions.map((transaction: Transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell>
-                        {format(new Date(transaction.date), "MMM dd, yyyy")}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {transaction.description}
-                      </TableCell>
-                      <TableCell>{transaction.category}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            transaction.type === "income"
-                              ? "default"
-                              : "destructive"
-                          }
-                        >
-                          {transaction.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell
-                        className={`text-right font-bold ${
-                          transaction.type === "income"
-                            ? "text-green-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        {transaction.type === "income" ? "+" : "-"}
-                        {formatCurrency(transaction.amount)}
-                      </TableCell>
+              {transactionsLoading ? (
+                <LoadingSpinner />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTransactions.map((transaction: Transaction) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            {getTransactionIcon(transaction.type)}
+                            <Badge 
+                              variant={transaction.type === 'income' ? 'default' : 'secondary'}
+                              className={transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+                            >
+                              {transaction.type}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">{transaction.description}</TableCell>
+                        <TableCell>{transaction.category}</TableCell>
+                        <TableCell className={transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}>
+                          {formatCurrency(transaction.amount)}
+                        </TableCell>
+                        <TableCell>{format(new Date(transaction.date), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => setSelectedTransaction(transaction)}
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => deleteTransactionMutation.mutate(transaction.id)}
+                              disabled={deleteTransactionMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Budgets Tab */}
+        <TabsContent value="budgets">
+          <div className="space-y-6">
+            <Card className="ranch-card">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-dark-green">Budget Management</CardTitle>
+                    <CardDescription>Set and monitor spending limits</CardDescription>
+                  </div>
+                  <Dialog open={showBudgetForm} onOpenChange={setShowBudgetForm}>
+                    <DialogTrigger asChild>
+                      <Button className="ranch-button-primary">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Budget
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Create New Budget</DialogTitle>
+                      </DialogHeader>
+                      <BudgetForm onSuccess={handleBudgetSuccess} />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {budgetsLoading ? (
+                  <LoadingSpinner />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {budgets.map((budget: Budget) => (
+                      <Card key={budget.id} className="border-l-4 border-farm-green">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm font-medium">{budget.name}</CardTitle>
+                            <Badge variant={budget.isActive ? "default" : "secondary"}>
+                              {budget.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>Category:</span>
+                              <span className="font-medium">{budget.category}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Budget:</span>
+                              <span className="font-medium">{formatCurrency(budget.amount)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span>Period:</span>
+                              <span className="font-medium">{budget.period}</span>
+                            </div>
+                            <div className="flex space-x-2 pt-2">
+                              <Button size="sm" variant="outline" className="flex-1">
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => deleteBudgetMutation.mutate(budget.id)}
+                                disabled={deleteBudgetMutation.isPending}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Accounts Tab */}
+        <TabsContent value="accounts">
+          <Card className="ranch-card">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-dark-green">Account Management</CardTitle>
+                  <CardDescription>Manage your financial accounts</CardDescription>
+                </div>
+                <Dialog open={showAccountForm} onOpenChange={setShowAccountForm}>
+                  <DialogTrigger asChild>
+                    <Button className="ranch-button-primary">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Account
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Add New Account</DialogTitle>
+                    </DialogHeader>
+                    <AccountForm onSuccess={handleAccountSuccess} />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {accountsLoading ? (
+                <LoadingSpinner />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {accounts.map((account: Account) => (
+                    <Card key={account.id} className="border-l-4 border-farm-green">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-sm font-medium">{account.name}</CardTitle>
+                          <Badge variant={account.isActive ? "default" : "secondary"}>
+                            {account.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>Type:</span>
+                            <span className="font-medium">{account.type}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Account #:</span>
+                            <span className="font-medium">{account.accountNumber}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span>Balance:</span>
+                            <span className={`font-medium ${account.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(account.balance)}
+                            </span>
+                          </div>
+                          <div className="flex space-x-2 pt-2">
+                            <Button size="sm" variant="outline" className="flex-1">
+                              <Edit className="h-3 w-3 mr-1" />
+                              Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => deleteAccountMutation.mutate(account.id)}
+                              disabled={deleteAccountMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="budgets" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {budgets?.map((budget: Budget) => (
-              <Card key={budget.id} className="ranch-card">
-                <CardHeader>
-                  <CardTitle className="text-lg">{budget.name}</CardTitle>
-                  <CardDescription>
-                    {budget.category} - {budget.period}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Budget Amount:</span>
-                      <span className="font-bold">
-                        {formatCurrency(budget.amount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Type:</span>
-                      <span>{budget.budgetType}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Alert Threshold:</span>
-                      <span>{budget.alertThreshold}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Status:</span>
-                      <Badge
-                        variant={budget.isActive ? "default" : "secondary"}
-                      >
-                        {budget.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="accounts" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {accounts?.map((account: Account) => (
-              <Card key={account.id} className="ranch-card">
-                <CardHeader>
-                  <CardTitle className="text-lg">{account.name}</CardTitle>
-                  <CardDescription>
-                    Account #{account.accountNumber}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Type:</span>
-                      <span className="font-medium">{account.type}</span>
-                    </div>
-                    {account.subType && (
-                      <div className="flex justify-between">
-                        <span>Sub-type:</span>
-                        <span>{account.subType}</span>
+        {/* Reports Tab */}
+        <TabsContent value="reports">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="ranch-card">
+              <CardHeader>
+                <CardTitle className="text-dark-green">Income by Category</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {summaryLoading ? (
+                  <LoadingSpinner />
+                ) : (
+                  <div className="space-y-4">
+                    {financialSummary.incomeByCategory?.map((item: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{item.category}</span>
+                        <span className="text-sm text-green-600 font-semibold">
+                          {formatCurrency(item.amount)}
+                        </span>
                       </div>
-                    )}
-                    <div className="flex justify-between">
-                      <span>Balance:</span>
-                      <span className="font-bold text-lg">
-                        {formatCurrency(account.balance)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Status:</span>
-                      <Badge
-                        variant={account.isActive ? "default" : "secondary"}
-                      >
-                        {account.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </div>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="analytics" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="ranch-card">
-              <CardHeader>
-                <CardTitle>Profit Margin Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>Gross Profit Margin:</span>
-                    <span className="font-bold text-green-600">
-                      {ratios.profitMargin}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Revenue Growth:</span>
-                    <span className="font-bold text-blue-600">+12.5%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Cost Control:</span>
-                    <span className="font-bold text-orange-600">
-                      8.2% increase
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Break Even Point:</span>
-                    <span className="font-bold text-purple-600">
-                      {ratios.breakEvenPoint}%
-                    </span>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
             <Card className="ranch-card">
               <CardHeader>
-                <CardTitle>Cash Flow Analysis</CardTitle>
+                <CardTitle className="text-dark-green">Expenses by Category</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>Operating Cash Flow:</span>
-                    <span className="font-bold text-green-600">
-                      {formatCurrency(financialSummary?.netProfit || 0)}
-                    </span>
+                {summaryLoading ? (
+                  <LoadingSpinner />
+                ) : (
+                  <div className="space-y-4">
+                    {financialSummary.expensesByCategory?.map((item: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{item.category}</span>
+                        <span className="text-sm text-red-600 font-semibold">
+                          {formatCurrency(item.amount)}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Free Cash Flow:</span>
-                    <span className="font-bold text-blue-600">
-                      {formatCurrency(
-                        (financialSummary?.netProfit || 0) * 0.85,
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Cash Conversion Cycle:</span>
-                    <span className="font-bold">32 days</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>ROI:</span>
-                    <span className="font-bold text-purple-600">
-                      {ratios.roi}%
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Expense Analysis */}
-          <Card className="ranch-card">
-            <CardHeader>
-              <CardTitle>Expense Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-red-600">
-                    {formatCurrency(financialSummary?.totalExpenses || 0)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Total Expenses
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {formatCurrency(
-                      (financialSummary?.totalExpenses || 0) / 12,
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Monthly Average
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {ratios.expenseRatio}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Expense to Income Ratio
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="forecasting" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="ranch-card">
-              <CardHeader>
-                <CardTitle>Revenue Forecast</CardTitle>
-                <CardDescription>Based on historical data</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>Next Month Projection:</span>
-                    <span className="font-bold text-green-600">
-                      {formatCurrency(
-                        (financialSummary?.totalIncome || 0) * 1.05,
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Next Quarter Projection:</span>
-                    <span className="font-bold text-green-600">
-                      {formatCurrency(
-                        (financialSummary?.totalIncome || 0) * 3.2,
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Annual Projection:</span>
-                    <span className="font-bold text-green-600">
-                      {formatCurrency(
-                        (financialSummary?.totalIncome || 0) * 12.8,
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card">
-              <CardHeader>
-                <CardTitle>Expense Forecast</CardTitle>
-                <CardDescription>Projected expenses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>Next Month Projection:</span>
-                    <span className="font-bold text-red-600">
-                      {formatCurrency(
-                        (financialSummary?.totalExpenses || 0) * 1.03,
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Next Quarter Projection:</span>
-                    <span className="font-bold text-red-600">
-                      {formatCurrency(
-                        (financialSummary?.totalExpenses || 0) * 3.1,
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Annual Projection:</span>
-                    <span className="font-bold text-red-600">
-                      {formatCurrency(
-                        (financialSummary?.totalExpenses || 0) * 12.4,
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="ranch-card">
-            <CardHeader>
-              <CardTitle>Break-Even Analysis</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {formatCurrency(financialSummary?.totalExpenses || 0)}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Break-Even Point
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {Math.ceil(
-                      (financialSummary?.totalExpenses || 0) /
-                        ((financialSummary?.totalIncome || 1) / 365),
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Days to Break Even
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {formatCurrency(
-                      Math.max(0, financialSummary?.netProfit || 0),
-                    )}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Profit Above Break-Even
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Profit & Loss Statement
-                </CardTitle>
-                <CardDescription>Comprehensive P&L report</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  Cash Flow Statement
-                </CardTitle>
-                <CardDescription>Cash flow analysis</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Calculator className="h-5 w-5" />
-                  Balance Sheet
-                </CardTitle>
-                <CardDescription>Assets, liabilities, equity</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Budget vs Actual
-                </CardTitle>
-                <CardDescription>Budget performance analysis</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Tax Summary
-                </CardTitle>
-                <CardDescription>Tax-ready financial summary</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <PieChart className="h-5 w-5" />
-                  Expense Analysis
-                </CardTitle>
-                <CardDescription>Detailed expense breakdown</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Trend Analysis
-                </CardTitle>
-                <CardDescription>Financial trends over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Monthly Summary
-                </CardTitle>
-                <CardDescription>Month-by-month breakdown</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full">Generate Report</Button>
-              </CardContent>
-            </Card>
-
-            <Card className="ranch-card cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Download className="h-5 w-5" />
-                  Export All Data
-                </CardTitle>
-                <CardDescription>Complete financial export</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  className="w-full"
-                  onClick={() =>
-                    exportToCSV(transactions || [], "complete_financial_data")
-                  }
-                >
-                  Export CSV
-                </Button>
+                )}
               </CardContent>
             </Card>
           </div>

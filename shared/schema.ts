@@ -33,7 +33,23 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
+  phone: varchar("phone"),
+  address: text("address"),
+  bio: text("bio"),
   role: varchar("role").default("user").notNull(), // user, admin, manager
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User notification settings
+export const userNotificationSettings = pgTable("user_notification_settings", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  emailNotifications: boolean("email_notifications").default(true),
+  healthAlerts: boolean("health_alerts").default(true),
+  lowStockAlerts: boolean("low_stock_alerts").default(true),
+  weatherAlerts: boolean("weather_alerts").default(true),
+  maintenanceReminders: boolean("maintenance_reminders").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -333,6 +349,20 @@ export const insertJournalEntrySchema = createInsertSchema(journalEntries).omit(
   createdAt: true,
 });
 
+export const insertUserNotificationSettingsSchema = createInsertSchema(userNotificationSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const updateUserProfileSchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  bio: z.string().optional(),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -369,3 +399,8 @@ export type Account = typeof accounts.$inferSelect;
 
 export type InsertJournalEntry = z.infer<typeof insertJournalEntrySchema>;
 export type JournalEntry = typeof journalEntries.$inferSelect;
+
+export type InsertUserNotificationSettings = z.infer<typeof insertUserNotificationSettingsSchema>;
+export type UserNotificationSettings = typeof userNotificationSettings.$inferSelect;
+
+export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;

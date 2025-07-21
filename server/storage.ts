@@ -10,7 +10,8 @@ import {
   documents,
   budgets,
   accounts,
-  journalEntries
+  journalEntries,
+  userNotificationSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { desc, eq, and, gte, lte, isNull, or, sql, sum, count } from "drizzle-orm";
@@ -38,13 +39,21 @@ import type {
   InsertAccount,
   Account,
   InsertJournalEntry,
-  JournalEntry
+  JournalEntry,
+  InsertUserNotificationSettings,
+  UserNotificationSettings,
+  UpdateUserProfile
 } from "@shared/schema";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserProfile(userId: string, profile: UpdateUserProfile): Promise<User>;
+  
+  // User notification settings
+  getUserNotificationSettings(userId: string): Promise<UserNotificationSettings | undefined>;
+  upsertUserNotificationSettings(settings: InsertUserNotificationSettings): Promise<UserNotificationSettings>;
 
   // Animal operations
   getAnimals(userId: string): Promise<Animal[]>;
@@ -664,6 +673,55 @@ export class DatabaseStorage implements IStorage {
       monthlyRevenue,
       monthlyExpenses,
     };
+  }
+
+  async updateUserProfile(userId: string, profile: UpdateUserProfile): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set({
+        ...profile,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    
+    if (!updatedUser) {
+      throw new Error("User not found");
+    }
+    
+    return updatedUser;
+  }
+
+  async getUserNotificationSettings(userId: string): Promise<UserNotificationSettings | undefined> {
+    const settings = await db
+      .select()
+      .from(userNotificationSettings)
+      .where(eq(userNotificationSettings.userId, userId))
+      .limit(1);
+    
+    return settings[0];
+  }
+
+  async upsertUserNotificationSettings(settings: InsertUserNotificationSettings): Promise<UserNotificationSettings> {
+    const existingSettings = await this.getUserNotificationSettings(settings.userId);
+    
+    if (existingSettings) {
+      const [updatedSettings] = await db
+        .update(userNotificationSettings)
+        .set({
+          ...settings,
+          updatedAt: new Date(),
+        })
+        .where(eq(userNotificationSettings.userId, settings.userId))
+        .returning();
+      return updatedSettings;
+    } else {
+      const [newSettings] = await db
+        .insert(userNotificationSettings)
+        .values(settings)
+        .returning();
+      return newSettings;
+    }
   }
 }
 
