@@ -73,7 +73,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Static file serving for uploads
-  const express = require('express');
   app.use('/uploads', express.static('uploads'));
 
   // Auth routes
