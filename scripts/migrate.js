@@ -1,7 +1,7 @@
 
-#!/usr/bin/env node
 
-const { execSync } = require('child_process');
+
+import { execSync } from 'child_process';
 
 const dbType = process.env.DATABASE_TYPE || 'postgresql';
 const action = process.argv[2] || 'push';
