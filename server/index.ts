@@ -56,20 +56,20 @@ app.get('/health', (req: Request, res: Response) => {
 // API routes
 registerRoutes(app);
 
-// Static file serving and Vite setup
-if (isProduction) {
-  serveStatic(app);
-} else {
-  setupVite(app);
-}
-
 // Error handling middleware (must be last)
 app.use(errorHandler);
 
 // Graceful shutdown
-const server = app.listen(config.port, '0.0.0.0', () => {
+const server = app.listen(config.port, '0.0.0.0', async () => {
   const mode = isProduction ? 'production' : 'development';
   logger.info(`Server running on port ${config.port} in ${mode} mode`);
+  
+  // Static file serving and Vite setup
+  if (isProduction) {
+    serveStatic(app);
+  } else {
+    await setupVite(app, server);
+  }
 });
 
 // Graceful shutdown handlers

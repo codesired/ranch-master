@@ -37,8 +37,8 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Get database type from environment
-const dbType = (process.env.DATABASE_TYPE || "postgresql").toLowerCase();
+// Get database type from environment - default to postgresql for browser builds
+const dbType = (typeof process !== 'undefined' && process.env?.DATABASE_TYPE || "postgresql").toLowerCase();
 
 // Database-specific table creators
 const createTable = (name: string, columns: any, tableOptions?: any) => {
