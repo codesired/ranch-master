@@ -1,25 +1,25 @@
 
-#!/usr/bin/env node
 
-const { execSync } = require('child_process');
-const fs = require('fs');
-const path = require('path');
 
-const dbType = process.env.DATABASE_TYPE || 'postgresql';
+import { execSync } from 'child_process';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+
+const dbType = process.env.DATABASE_TYPE || 'sqlite';
 
 console.log(`Setting up database for: ${dbType}`);
 
 // Create directories
-const migrationsDir = path.join('migrations', dbType);
-if (!fs.existsSync(migrationsDir)) {
-  fs.mkdirSync(migrationsDir, { recursive: true });
+const migrationsDir = join('migrations', dbType);
+if (!existsSync(migrationsDir)) {
+  mkdirSync(migrationsDir, { recursive: true });
   console.log(`Created migrations directory: ${migrationsDir}`);
 }
 
 // Create uploads directory
 const uploadsDir = process.env.UPLOAD_PATH || './uploads';
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+if (!existsSync(uploadsDir)) {
+  mkdirSync(uploadsDir, { recursive: true });
   console.log(`Created uploads directory: ${uploadsDir}`);
 }
 

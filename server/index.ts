@@ -7,6 +7,8 @@ import { securityHeaders, createRateLimiter, validateRequest, errorHandler } fro
 import { requestLogger, logger } from "./middleware/logging";
 import cors from "cors";
 import compression from "compression";
+import dotenv from "dotenv";
+dotenv.config();
 
 const app = express();
 

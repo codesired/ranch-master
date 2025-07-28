@@ -1,5 +1,7 @@
 
 import { DatabaseProvider } from './database-providers';
+import dotenv from 'dotenv';
+dotenv.config();
 
 // Parse database configuration from environment
 const getDatabaseConfig = () => {
