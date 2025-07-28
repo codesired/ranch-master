@@ -335,7 +335,7 @@ export class DatabaseStorage implements IStorage {
     let totalIncome = 0;
     let totalExpenses = 0;
 
-    results.forEach((result) => {
+    results.forEach((result: any) => {
       const amount = parseFloat(result.total || '0');
       if (result.type === 'income') {
         totalIncome += amount;
@@ -669,7 +669,7 @@ export class DatabaseStorage implements IStorage {
     let monthlyRevenue = 0;
     let monthlyExpenses = 0;
 
-    monthlyTransactions.forEach((transaction) => {
+    monthlyTransactions.forEach((transaction: any) => {
       const amount = parseFloat(transaction.total || '0');
       if (transaction.type === 'income') {
         monthlyRevenue += amount;
@@ -945,7 +945,7 @@ export class DatabaseStorage implements IStorage {
       }
     };
 
-    return defaultSettings[type] || {};
+    return (defaultSettings as any)[type] || {};
   }
 
   async updateUserSettings(userId: string, type: string, settings: any): Promise<any> {

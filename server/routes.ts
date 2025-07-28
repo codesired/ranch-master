@@ -16,6 +16,7 @@ import {
   insertAccountSchema,
   insertJournalEntrySchema,
   insertUserNotificationSettingsSchema,
+  updateUserProfileSchema,
   type UpdateUserProfile,
 } from "@shared/schema";
 import { z } from "zod";

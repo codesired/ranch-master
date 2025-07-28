@@ -52,7 +52,7 @@ export const config: AppConfig = {
     bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12', 10),
     sessionMaxAge: parseInt(process.env.SESSION_MAX_AGE || '86400000', 10), // 24 hours
     rateLimitWindowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
-    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || '100', 10), // 100 requests per window
+    rateLimitMax: parseInt(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'development' ? '1000' : '100'), 10)
   },
 
   logging: {

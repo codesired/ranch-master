@@ -33,7 +33,7 @@ import {
   blob as sqliteBlob,
   index as sqliteIndex,
 } from "drizzle-orm/sqlite-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -315,7 +315,7 @@ export const budgets = createTable("budgets", {
   name: col.varchar("name").notNull(),
   category: col.varchar("category").notNull(),
   budgetedAmount: col.decimal("budgeted_amount", 12, 2).notNull(),
-  actualAmount: col.decimal("actual_amount", 12, 2).default("0.00"),
+  actualAmount: col.decimal("actual_amount", 12, 2).default(sql`'0.00'`),
   period: col.varchar("period").default("monthly"),
   startDate: col.date("start_date").notNull(),
   endDate: col.date("end_date").notNull(),
@@ -337,7 +337,7 @@ export const accounts = createTable("accounts", {
   name: col.varchar("name").notNull(),
   type: col.varchar("type").notNull(),
   subType: col.varchar("sub_type"),
-  balance: col.decimal("balance", 12, 2).default("0.00"),
+  balance: col.decimal("balance", 12, 2).default(sql`'0.00'`),
   isActive: col.boolean("is_active").default(true),
   createdAt: col.timestamp("created_at").defaultNow
     ? col.timestamp("created_at").defaultNow()
