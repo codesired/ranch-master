@@ -31,7 +31,7 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-farm-green text-white shadow-lg">
+    <header className="ranch-hero-gradient text-white shadow-lg border-b border-green-800/20">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-4">
@@ -60,17 +60,17 @@ export default function Header() {
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={user?.profileImageUrl || undefined}
-                      alt={user?.firstName || "User"}
+                      src={(user as any)?.profileImageUrl || undefined}
+                      alt={(user as any)?.firstName || "User"}
                     />
                     <AvatarFallback className="bg-green-600 text-white">
-                      {user?.firstName?.[0] || user?.email?.[0] || "U"}
+                      {(user as any)?.firstName?.[0] || (user as any)?.email?.[0] || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm font-medium hidden sm:inline">
-                    {user?.firstName
-                      ? `${user.firstName} ${user.lastName || ""}`.trim()
-                      : user?.email || "User"}
+                    {(user as any)?.firstName
+                      ? `${(user as any).firstName} ${(user as any).lastName || ""}`.trim()
+                      : (user as any)?.email || "User"}
                   </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -78,13 +78,13 @@ export default function Header() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="flex items-center space-x-2">
                   <span>My Account</span>
-                  {user?.role === "admin" && (
+                  {(user as any)?.role === "admin" && (
                     <Badge variant="secondary" className="text-xs">
                       <Shield className="h-3 w-3 mr-1" />
                       Admin
                     </Badge>
                   )}
-                  {user?.role === "manager" && (
+                  {(user as any)?.role === "manager" && (
                     <Badge variant="outline" className="text-xs">
                       Manager
                     </Badge>
@@ -105,7 +105,7 @@ export default function Header() {
                   <Settings className="h-4 w-4" />
                   <span>Settings</span>
                 </DropdownMenuItem>
-                {user?.role === "admin" && (
+                {(user as any)?.role === "admin" && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

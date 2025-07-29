@@ -190,13 +190,13 @@ export default function Dashboard() {
     totalEquipment > 0 ? (operationalEquipment / totalEquipment) * 100 : 100;
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="container mx-auto px-4 py-8 space-y-6 min-h-screen">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-farm-green">
+          <h1 className="text-4xl font-bold text-primary">
             Ranch Dashboard
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-lg">
             Welcome back! Here's what's happening on your ranch.
           </p>
         </div>
@@ -214,17 +214,17 @@ export default function Dashboard() {
 
       {/* Main Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="ranch-card">
+        <Card className="ranch-metric-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Animals</CardTitle>
-            <Users className="h-4 w-4 text-farm-green" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Animals</CardTitle>
+            <Users className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalAnimals || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold text-primary">{stats?.totalAnimals || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">
               Active livestock count
             </p>
-            <div className="mt-2">
+            <div className="mt-3">
               <Progress
                 value={Math.min(100, ((stats?.totalAnimals || 0) / 100) * 100)}
                 className="h-2"
@@ -233,13 +233,13 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="ranch-card">
+        <Card className="ranch-metric-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Health Score</CardTitle>
-            <Heart className="h-4 w-4 text-red-500" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Health Score</CardTitle>
+            <Heart className="h-5 w-5 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-bold text-green-600">
               {stats?.totalAnimals > 0
                 ? Math.round(
                     ((stats.totalAnimals - (stats?.healthAlerts || 0)) /
@@ -249,10 +249,10 @@ export default function Dashboard() {
                 : 100}
               %
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               {stats?.healthAlerts || 0} alerts pending
             </p>
-            <div className="mt-2">
+            <div className="mt-3">
               <Progress
                 value={
                   stats?.totalAnimals > 0
@@ -267,37 +267,37 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="ranch-card">
+        <Card className="ranch-metric-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Monthly Revenue
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <TrendingUp className="h-5 w-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-bold text-green-600">
               {formatCurrency(stats?.monthlyRevenue || 0)}
             </div>
-            <p className="text-xs text-green-600">+12.5% from last month</p>
-            <div className="mt-2">
+            <p className="text-xs text-green-600 mt-1">+12.5% from last month</p>
+            <div className="mt-3">
               <Progress value={75} className="h-2" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="ranch-card">
+        <Card className="ranch-metric-card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Profit Margin</CardTitle>
-            <Target className="h-4 w-4 text-purple-600" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Profit Margin</CardTitle>
+            <Target className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">
+            <div className="text-3xl font-bold text-purple-600">
               {profitMargin.toFixed(1)}%
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               Net: {formatCurrency(netProfit)}
             </p>
-            <div className="mt-2">
+            <div className="mt-3">
               <Progress value={Math.max(0, profitMargin)} className="h-2" />
             </div>
           </CardContent>
@@ -306,35 +306,35 @@ export default function Dashboard() {
 
       {/* Secondary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="ranch-card">
+        <Card className="ranch-card-dashboard">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Equipment Efficiency
             </CardTitle>
-            <Zap className="h-4 w-4 text-orange-600" />
+            <Zap className="h-5 w-5 text-orange-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">
               {equipmentEfficiency.toFixed(0)}%
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               {operationalEquipment}/{totalEquipment} operational
             </p>
           </CardContent>
         </Card>
 
-        <Card className="ranch-card">
+        <Card className="ranch-card-dashboard">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Inventory Status
             </CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
+            <Package className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
               {inventory?.length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               {stats?.lowStockItems || 0} items low stock
             </p>
           </CardContent>
