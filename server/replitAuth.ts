@@ -117,8 +117,19 @@ export async function setupAuth(app: Express) {
     try {
       // Use the first domain from REPLIT_DOMAINS for development
       const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
+      const strategyName = `replitauth:${domain}`;
+      
       console.log("Login attempt with domain:", domain);
-      passport.authenticate(`replitauth:${domain}`, {
+      console.log("Strategy name:", strategyName);
+      console.log("Available strategies:", (passport as any)._strategies ? Object.keys((passport as any)._strategies) : 'none');
+      
+      // Check if the strategy exists
+      if (!(passport as any)._strategies || !(passport as any)._strategies[strategyName]) {
+        console.error("Strategy not found:", strategyName);
+        return res.status(500).json({ error: "Authentication strategy not configured" });
+      }
+      
+      passport.authenticate(strategyName, {
         prompt: "login consent",
         scope: ["openid", "email", "profile", "offline_access"],
       })(req, res, next);
@@ -131,9 +142,14 @@ export async function setupAuth(app: Express) {
   app.get("/api/callback", (req, res, next) => {
     // Use the first domain from REPLIT_DOMAINS for development
     const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
-    passport.authenticate(`replitauth:${domain}`, {
+    const strategyName = `replitauth:${domain}`;
+    
+    console.log("Callback attempt with strategy:", strategyName);
+    
+    passport.authenticate(strategyName, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
+      failureFlash: true
     })(req, res, next);
   });
 
