@@ -129,10 +129,20 @@ export async function setupAuth(app: Express) {
         return res.status(500).json({ error: "Authentication strategy not configured" });
       }
       
-      passport.authenticate(strategyName, {
+      console.log("Executing authentication middleware...");
+      
+      // Make sure to properly handle the authentication redirect
+      const authenticateResult = passport.authenticate(strategyName, {
         prompt: "login consent",
         scope: ["openid", "email", "profile", "offline_access"],
-      })(req, res, next);
+      })(req, res, (err: any) => {
+        if (err) {
+          console.error("Authentication middleware error:", err);
+          return res.status(500).json({ error: "Authentication failed" });
+        }
+        console.log("Authentication middleware completed - should have redirected");
+        next();
+      });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Authentication setup error" });
