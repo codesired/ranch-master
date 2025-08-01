@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { authenticateFirebaseToken, type AuthenticatedRequest } from "./firebaseAuth";
 import { seedDatabase } from "./seed-data";
 import {
   insertAnimalSchema,
@@ -67,11 +67,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
-
-  // Serve uploaded files
-  app.use("/uploads", isAuthenticated, (req: any, res, next) => {
+  // Serve uploaded files with authentication
+  app.use("/uploads", authenticateFirebaseToken, (req: any, res, next) => {
     // Add security headers for file downloads
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
@@ -81,11 +78,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Static file serving for uploads
   app.use("/uploads", express.static("uploads"));
 
-  // Auth routes
-  app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
+  // Firebase Auth sync route
+  app.post("/api/auth/firebase-sync", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const { uid, email, displayName, photoURL } = req.body;
+      
+      // Upsert user in database
+      await storage.upsertUser({
+        id: uid,
+        email: email || '',
+        firstName: displayName?.split(' ')[0] || '',
+        lastName: displayName?.split(' ').slice(1).join(' ') || '',
+        profileImageUrl: photoURL || '',
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error syncing Firebase user:", error);
+      res.status(500).json({ message: "Failed to sync user" });
+    }
+  });
+
+  // Auth routes
+  app.get("/api/auth/user", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(req.user.uid);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -94,9 +119,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Profile routes
-  app.patch("/api/profile", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/profile", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const profileData = updateUserProfileSchema.parse(req.body);
       const updatedUser = await storage.updateUserProfile(userId, profileData);
       res.json(updatedUser);
@@ -109,10 +138,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification settings routes
   app.get(
     "/api/notifications/settings",
-    isAuthenticated,
-    async (req: any, res) => {
+    authenticateFirebaseToken,
+    async (req: AuthenticatedRequest, res) => {
       try {
-        const userId = req.user.claims.sub;
+        if (!req.user) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        const userId = req.user.uid;
         const settings = await storage.getUserNotificationSettings(userId);
         res.json(
           settings || {
@@ -134,10 +167,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch(
     "/api/notifications/settings",
-    isAuthenticated,
-    async (req: any, res) => {
+    authenticateFirebaseToken,
+    async (req: AuthenticatedRequest, res) => {
       try {
-        const userId = req.user.claims.sub;
+        if (!req.user) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        const userId = req.user.uid;
         const settingsData = insertUserNotificationSettingsSchema.parse({
           ...req.body,
           userId,
@@ -155,9 +192,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Dashboard routes
-  app.get("/api/dashboard/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/dashboard/stats", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const stats = await storage.getDashboardStats(userId);
       res.json(stats);
     } catch (error) {
@@ -167,9 +208,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Animal routes
-  app.get("/api/animals", isAuthenticated, async (req: any, res) => {
+  app.get("/api/animals", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const animals = await storage.getAnimals(userId);
       res.json(animals);
     } catch (error) {
@@ -178,9 +223,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/animals/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/animals/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const animal = await storage.getAnimal(id, userId);
       if (!animal) {
@@ -193,10 +242,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/animals", isAuthenticated, async (req: any, res) => {
+  app.post("/api/animals", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
       console.log("Hello Word");
-      const userId = req.user.claims.sub;
+      const userId = req.user.uid;
       const animalData = insertAnimalSchema.parse({ ...req.body, userId });
       const animal = await storage.createAnimal(animalData);
       res.status(201).json(animal);
@@ -206,9 +259,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/animals/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/animals/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const animalData = insertAnimalSchema.partial().parse(req.body);
       const animal = await storage.updateAnimal(id, animalData, userId);
@@ -219,9 +276,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/animals/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/animals/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       await storage.deleteAnimal(id, userId);
       res.status(204).send();
@@ -234,10 +295,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Health records routes
   app.get(
     "/api/animals/:animalId/health-records",
-    isAuthenticated,
-    async (req: any, res) => {
+    authenticateFirebaseToken,
+    async (req: AuthenticatedRequest, res) => {
       try {
-        const userId = req.user.claims.sub;
+        if (!req.user) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        const userId = req.user.uid;
         const animalId = parseInt(req.params.animalId);
         const records = await storage.getHealthRecords(animalId, userId);
         res.json(records);
@@ -248,9 +313,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  app.post("/api/health-records", isAuthenticated, async (req: any, res) => {
+  app.post("/api/health-records", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const recordData = insertHealthRecordSchema.parse({
         ...req.body,
         userId,
@@ -264,9 +333,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Breeding records routes
-  app.get("/api/breeding-records", isAuthenticated, async (req: any, res) => {
+  app.get("/api/breeding-records", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const records = await storage.getBreedingRecords(userId);
       res.json(records);
     } catch (error) {
@@ -275,9 +348,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/breeding-records", isAuthenticated, async (req: any, res) => {
+  app.post("/api/breeding-records", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const recordData = insertBreedingRecordSchema.parse({
         ...req.body,
         userId,
@@ -290,36 +367,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Transaction routes
-  app.get("/api/transactions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/financial-summary", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const transactions = await storage.getTransactions(userId);
-      res.json(transactions);
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-      res.status(500).json({ message: "Failed to fetch transactions" });
-    }
-  });
-
-  app.post("/api/transactions", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const transactionData = insertTransactionSchema.parse({
-        ...req.body,
-        userId,
-      });
-      const transaction = await storage.createTransaction(transactionData);
-      res.status(201).json(transaction);
-    } catch (error) {
-      console.error("Error creating transaction:", error);
-      res.status(500).json({ message: "Failed to create transaction" });
-    }
-  });
-
-  app.get("/api/financial-summary", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const { startDate, endDate } = req.query;
 
       const start = startDate ? new Date(startDate as string) : undefined;
@@ -334,9 +388,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Inventory routes
-  app.get("/api/inventory", isAuthenticated, async (req: any, res) => {
+  app.get("/api/inventory", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const inventory = await storage.getInventory(userId);
       res.json(inventory);
     } catch (error) {
@@ -345,9 +403,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/inventory", isAuthenticated, async (req: any, res) => {
+  app.post("/api/inventory", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const inventoryData = insertInventorySchema.parse({
         ...req.body,
         userId,
@@ -360,25 +422,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get(
-    "/api/inventory/low-stock",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const lowStockItems = await storage.getLowStockItems(userId);
-        res.json(lowStockItems);
-      } catch (error) {
-        console.error("Error fetching low stock items:", error);
-        res.status(500).json({ message: "Failed to fetch low stock items" });
+  app.get("/api/inventory/low-stock", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-    },
-  );
+      
+      const userId = req.user.uid;
+      const lowStockItems = await storage.getLowStockItems(userId);
+      res.json(lowStockItems);
+    } catch (error) {
+      console.error("Error fetching low stock items:", error);
+      res.status(500).json({ message: "Failed to fetch low stock items" });
+    }
+  });
 
   // Equipment routes
-  app.get("/api/equipment", isAuthenticated, async (req: any, res) => {
+  app.get("/api/equipment", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const equipment = await storage.getEquipment(userId);
       res.json(equipment);
     } catch (error) {
@@ -387,9 +453,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/equipment", isAuthenticated, async (req: any, res) => {
+  app.post("/api/equipment", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const equipmentData = insertEquipmentSchema.parse({
         ...req.body,
         userId,
@@ -402,16 +472,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/equipment/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/equipment/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const equipmentData = insertEquipmentSchema.partial().parse(req.body);
-      const equipment = await storage.updateEquipment(
-        id,
-        equipmentData,
-        userId,
-      );
+      const equipment = await storage.updateEquipment(id, equipmentData, userId);
       res.json(equipment);
     } catch (error) {
       console.error("Error updating equipment:", error);
@@ -419,9 +489,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/equipment/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/equipment/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       await storage.deleteEquipment(id, userId);
       res.status(204).send();
@@ -434,50 +508,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Maintenance records routes
   app.get(
     "/api/equipment/:equipmentId/maintenance-records",
-    isAuthenticated,
-    async (req: any, res) => {
+    authenticateFirebaseToken,
+    async (req: AuthenticatedRequest, res) => {
       try {
-        const userId = req.user.claims.sub;
+        if (!req.user) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        const userId = req.user.uid;
         const equipmentId = parseInt(req.params.equipmentId);
-        const records = await storage.getMaintenanceRecords(
-          equipmentId,
-          userId,
-        );
+        const records = await storage.getMaintenanceRecords(equipmentId, userId);
         res.json(records);
       } catch (error) {
         console.error("Error fetching maintenance records:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to fetch maintenance records" });
+        res.status(500).json({ message: "Failed to fetch maintenance records" });
       }
     },
   );
 
-  app.post(
-    "/api/maintenance-records",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const recordData = insertMaintenanceRecordSchema.parse({
-          ...req.body,
-          userId,
-        });
-        const record = await storage.createMaintenanceRecord(recordData);
-        res.status(201).json(record);
-      } catch (error) {
-        console.error("Error creating maintenance record:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to create maintenance record" });
+  app.post("/api/maintenance-records", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-    },
-  );
+      
+      const userId = req.user.uid;
+      const recordData = insertMaintenanceRecordSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const record = await storage.createMaintenanceRecord(recordData);
+      res.status(201).json(record);
+    } catch (error) {
+      console.error("Error creating maintenance record:", error);
+      res.status(500).json({ message: "Failed to create maintenance record" });
+    }
+  });
 
   // Document routes
-  app.get("/api/documents", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const documents = await storage.getDocuments(userId);
       res.json(documents);
     } catch (error) {
@@ -486,17 +561,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/documents/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/documents/stats", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const documents = await storage.getDocuments(userId);
 
       const totalDocuments = documents.length;
       const now = new Date();
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thirtyDaysFromNow = new Date(
-        now.getTime() + 30 * 24 * 60 * 60 * 1000,
-      );
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       const recentUploads = documents.filter(
         (doc: any) => new Date(doc.createdAt) > oneWeekAgo,
@@ -511,10 +588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categoriesCount = categories.size;
 
       // Mock storage usage for now
-      const storageUsed = Math.min(
-        Math.round((totalDocuments / 1000) * 100),
-        100,
-      );
+      const storageUsed = Math.min(Math.round((totalDocuments / 1000) * 100), 100);
 
       res.json({
         totalDocuments,
@@ -538,11 +612,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post(
     "/api/documents",
-    isAuthenticated,
+    authenticateFirebaseToken,
     upload.single("file"),
-    async (req: any, res) => {
+    async (req: AuthenticatedRequest, res) => {
       try {
-        const userId = req.user.claims.sub;
+        if (!req.user) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        
+        const userId = req.user.uid;
 
         if (!req.file) {
           return res.status(400).json({ message: "No file uploaded" });
@@ -592,9 +670,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
-  app.put("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/documents/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const documentData = insertDocumentSchema.partial().parse(req.body);
       const document = await storage.updateDocument(id, documentData, userId);
@@ -605,9 +687,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/documents/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/documents/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       await storage.deleteDocument(id, userId);
       res.status(204).send();
@@ -618,18 +704,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Weather route (example using OpenWeatherMap API)
-  app.get("/api/weather", isAuthenticated, async (req: any, res) => {
+  app.get("/api/weather", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const apiKey =
-        process.env.OPENWEATHER_API_KEY ||
-        process.env.WEATHER_API_KEY ||
-        "demo_key";
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const apiKey = process.env.OPENWEATHER_API_KEY || process.env.WEATHER_API_KEY || "demo_key";
       const { lat, lon } = req.query;
 
       if (!lat || !lon) {
-        return res
-          .status(400)
-          .json({ message: "Latitude and longitude are required" });
+        return res.status(400).json({ message: "Latitude and longitude are required" });
       }
 
       const response = await fetch(
@@ -637,9 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       if (!response.ok) {
-        return res
-          .status(response.status)
-          .json({ message: "Weather service unavailable" });
+        return res.status(response.status).json({ message: "Weather service unavailable" });
       }
 
       const weatherData = await response.json();
@@ -651,9 +734,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Budget routes
-  app.get("/api/budgets", isAuthenticated, async (req: any, res) => {
+  app.get("/api/budgets", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const budgets = await storage.getBudgets(userId);
       res.json(budgets);
     } catch (error) {
@@ -662,9 +749,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/budgets", isAuthenticated, async (req: any, res) => {
+  app.post("/api/budgets", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const budgetData = insertBudgetSchema.parse({ ...req.body, userId });
       const budget = await storage.createBudget(budgetData);
       res.status(201).json(budget);
@@ -674,9 +765,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/budgets/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/budgets/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const budgetData = insertBudgetSchema.partial().parse(req.body);
       const budget = await storage.updateBudget(id, budgetData, userId);
@@ -687,9 +782,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/budgets/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/budgets/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       await storage.deleteBudget(id, userId);
       res.status(204).send();
@@ -699,9 +798,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/budget-status", isAuthenticated, async (req: any, res) => {
+  app.get("/api/budget-status", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const { period } = req.query;
       const status = await storage.getBudgetStatus(userId, period as string);
       res.json(status);
@@ -712,9 +815,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Account routes
-  app.get("/api/accounts", isAuthenticated, async (req: any, res) => {
+  app.get("/api/accounts", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const accounts = await storage.getAccounts(userId);
       res.json(accounts);
     } catch (error) {
@@ -723,9 +830,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/accounts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/accounts", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const accountData = insertAccountSchema.parse({ ...req.body, userId });
       const account = await storage.createAccount(accountData);
       res.status(201).json(account);
@@ -735,9 +846,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/accounts/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/accounts/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const accountData = insertAccountSchema.partial().parse(req.body);
       const account = await storage.updateAccount(id, accountData, userId);
@@ -749,9 +864,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Journal entry routes
-  app.get("/api/journal-entries", isAuthenticated, async (req: any, res) => {
+  app.get("/api/journal-entries", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const entries = await storage.getJournalEntries(userId);
       res.json(entries);
     } catch (error) {
@@ -760,9 +879,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/journal-entries", isAuthenticated, async (req: any, res) => {
+  app.post("/api/journal-entries", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const entryData = insertJournalEntrySchema.parse({ ...req.body, userId });
       const entry = await storage.createJournalEntry(entryData);
       res.status(201).json(entry);
@@ -772,9 +895,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/trial-balance", isAuthenticated, async (req: any, res) => {
+  app.get("/api/trial-balance", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const trialBalance = await storage.getTrialBalance(userId);
       res.json(trialBalance);
     } catch (error) {
@@ -784,16 +911,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Enhanced transaction route to include updating transaction
-  app.put("/api/transactions/:id", isAuthenticated, async (req: any, res) => {
+  app.put("/api/transactions/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const userId = req.user.claims.sub;
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
       const id = parseInt(req.params.id);
       const transactionData = insertTransactionSchema.partial().parse(req.body);
-      const transaction = await storage.updateTransaction(
-        id,
-        transactionData,
-        userId,
-      );
+      const transaction = await storage.updateTransaction(id, transactionData, userId);
       res.json(transaction);
     } catch (error) {
       console.error("Error updating transaction:", error);
@@ -801,26 +928,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete(
-    "/api/transactions/:id",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const id = parseInt(req.params.id);
-        await storage.deleteTransaction(id, userId);
-        res.status(204).send();
-      } catch (error) {
-        console.error("Error deleting transaction:", error);
-        res.status(500).json({ message: "Failed to delete transaction" });
+  app.delete("/api/transactions/:id", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-    },
-  );
+      
+      const userId = req.user.uid;
+      const id = parseInt(req.params.id);
+      await storage.deleteTransaction(id, userId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      res.status(500).json({ message: "Failed to delete transaction" });
+    }
+  });
+
+  // Transaction routes
+  app.get("/api/transactions", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
+      const transactions = await storage.getTransactions(userId);
+      res.json(transactions);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      res.status(500).json({ message: "Failed to fetch transactions" });
+    }
+  });
+
+  app.post("/api/transactions", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.uid;
+      const transactionData = insertTransactionSchema.parse({
+        ...req.body,
+        userId,
+      });
+      const transaction = await storage.createTransaction(transactionData);
+      res.status(201).json(transaction);
+    } catch (error) {
+      console.error("Error creating transaction:", error);
+      res.status(500).json({ message: "Failed to create transaction" });
+    }
+  });
 
   // Admin routes
-  app.get("/api/admin/users", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/users", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(req.user.uid);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -832,9 +998,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/stats", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(req.user.uid);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -846,9 +1016,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/audit-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/audit-logs", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(req.user.uid);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -860,9 +1034,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/users", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/users", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(req.user.uid);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -874,222 +1052,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch(
-    "/api/admin/users/:userId/role",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const user = await storage.getUser(req.user.claims.sub);
-        if (user?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-        const updatedUser = await storage.updateUserRole(
-          req.params.userId,
-          req.body.role,
-        );
-        res.json(updatedUser);
-      } catch (error) {
-        console.error("Error updating user role:", error);
-        res.status(500).json({ message: "Failed to update user role" });
-      }
-    },
-  );
-
-  app.patch(
-    "/api/admin/users/:userId/activate",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const user = await storage.getUser(req.user.claims.sub);
-        if (user?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-        const updatedUser = await storage.updateUserStatus(
-          req.params.userId,
-          true,
-        );
-        res.json(updatedUser);
-      } catch (error) {
-        console.error("Error activating user:", error);
-        res.status(500).json({ message: "Failed to activate user" });
-      }
-    },
-  );
-
-  app.patch(
-    "/api/admin/users/:userId/deactivate",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const user = await storage.getUser(req.user.claims.sub);
-        if (user?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-        const updatedUser = await storage.updateUserStatus(
-          req.params.userId,
-          false,
-        );
-        res.json(updatedUser);
-      } catch (error) {
-        console.error("Error deactivating user:", error);
-        res.status(500).json({ message: "Failed to deactivate user" });
-      }
-    },
-  );
-
-  app.patch("/api/admin/users/bulk", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/users/:userId/role", authenticateFirebaseToken, async (req: AuthenticatedRequest, res) => {
     try {
-      const user = await storage.getUser(req.user.claims.sub);
+      if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const user = await storage.getUser(req.user.uid);
       if (user?.role !== "admin") {
         return res.status(403).json({ message: "Admin access required" });
       }
-      const { userIds, action, data } = req.body;
-      const result = await storage.bulkUpdateUsers(userIds, action, data);
-      res.json(result);
+      const updatedUser = await storage.updateUserRole(req.params.userId, req.body.role);
+      res.json(updatedUser);
     } catch (error) {
-      console.error("Error in bulk user update:", error);
-      res.status(500).json({ message: "Failed to perform bulk action" });
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
     }
   });
 
-  app.post(
-    "/api/admin/system/:action",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const user = await storage.getUser(req.user.claims.sub);
-        if (user?.role !== "admin") {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-        const { action } = req.params;
-        const result = await storage.performSystemAction(action);
-        res.json(result);
-      } catch (error) {
-        console.error("Error performing system action:", error);
-        res.status(500).json({ message: "Failed to perform system action" });
-      }
-    },
-  );
-
-  // Notification routes
-  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const notifications = await storage.getUserNotifications(userId);
-      res.json(notifications);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      res.status(500).json({ message: "Failed to fetch notifications" });
-    }
-  });
-
-  app.patch(
-    "/api/notifications/:id/read",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const notificationId = req.params.id;
-        await storage.markNotificationAsRead(notificationId, userId);
-        res.json({ success: true });
-      } catch (error) {
-        console.error("Error marking notification as read:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to mark notification as read" });
-      }
-    },
-  );
-
-  app.patch(
-    "/api/notifications/mark-all-read",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        await storage.markAllNotificationsAsRead(userId);
-        res.json({ success: true });
-      } catch (error) {
-        console.error("Error marking all notifications as read:", error);
-        res
-          .status(500)
-          .json({ message: "Failed to mark all notifications as read" });
-      }
-    },
-  );
-
-  // Settings routes
-  app.get("/api/settings/:type", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { type } = req.params;
-      const settings = await storage.getUserSettings(userId, type);
-      res.json(settings);
-    } catch (error) {
-      console.error("Error fetching settings:", error);
-      res.status(500).json({ message: "Failed to fetch settings" });
-    }
-  });
-
-  app.patch("/api/settings/:type", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const { type } = req.params;
-      const settings = await storage.updateUserSettings(userId, type, req.body);
-      res.json(settings);
-    } catch (error) {
-      console.error("Error updating settings:", error);
-      res.status(500).json({ message: "Failed to update settings" });
-    }
-  });
-
-  app.post(
-    "/api/settings/change-password",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const { newPassword } = req.body;
-        const result = await storage.changeUserPassword(userId, newPassword);
-        res.json(result);
-      } catch (error) {
-        console.error("Error changing password:", error);
-        res.status(500).json({ message: "Failed to change password" });
-      }
-    },
-  );
-
-  app.post(
-    "/api/settings/export-data",
-    isAuthenticated,
-    async (req: any, res) => {
-      try {
-        const userId = req.user.claims.sub;
-        const result = await storage.exportUserData(userId);
-        res.json(result);
-      } catch (error) {
-        console.error("Error exporting data:", error);
-        res.status(500).json({ message: "Failed to export data" });
-      }
-    },
-  );
-
-  // Seed database endpoint
-  app.post("/api/seed-database", isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const success = await seedDatabase(userId);
-      if (success) {
-        res.json({ message: "Database seeded successfully" });
-      } else {
-        res.status(500).json({ message: "Failed to seed database" });
-      }
-    } catch (error) {
-      console.error("Error seeding database:", error);
-      res.status(500).json({ message: "Failed to seed database" });
-    }
-  });
-
-  const httpServer = createServer(app);
-  return httpServer;
+  // Create HTTP server and return it
+  const server = createServer(app);
+  return server;
 }

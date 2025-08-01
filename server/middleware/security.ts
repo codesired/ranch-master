@@ -6,6 +6,11 @@ import { config } from '../config';
 
 // Rate limiting
 export const createRateLimiter = () => {
+  // Disable rate limiting in development mode to avoid 429 errors during development
+  if (config.nodeEnv === 'development') {
+    return (req: Request, res: Response, next: NextFunction) => next();
+  }
+  
   return rateLimit({
     windowMs: config.security.rateLimitWindowMs,
     max: config.security.rateLimitMax,

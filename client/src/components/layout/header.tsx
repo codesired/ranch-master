@@ -3,6 +3,8 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { logOut } from "@/lib/firebase";
+import { useToast } from "@/hooks/use-toast";
 import {
   Tractor,
   CloudSun,
@@ -25,6 +27,23 @@ import { NotificationSystem } from "@/components/notifications/notification-syst
 export default function Header() {
   const { user, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    try {
+      await logOut();
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!isAuthenticated) {
     return null;
@@ -120,7 +139,7 @@ export default function Header() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-red-600 cursor-pointer"
-                  onClick={() => (window.location.href = "/api/logout")}
+                  onClick={handleLogout}
                 >
                   Sign Out
                 </DropdownMenuItem>
